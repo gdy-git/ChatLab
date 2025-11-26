@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
-import ImportProgressModal from '@/components/ImportProgressModal.vue'
 
 const chatStore = useChatStore()
 
@@ -14,7 +13,5 @@ onMounted(async () => {
 <template>
   <UApp>
     <router-view />
-    <!-- 全局导入进度弹窗 -->
-    <ImportProgressModal />
   </UApp>
 </template>

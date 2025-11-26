@@ -54,6 +54,18 @@ export const useChatStore = defineStore(
           return { success: false, error: result.error }
         }
 
+        // 使用共享的导入逻辑
+        return await importFileFromPath(result.filePath)
+      } catch (error) {
+        return { success: false, error: String(error) }
+      }
+    }
+
+    /**
+     * 从文件路径直接导入（用于拖拽导入）
+     */
+    async function importFileFromPath(filePath: string): Promise<{ success: boolean; error?: string }> {
+      try {
         // 开始导入
         isImporting.value = true
         importProgress.value = {
@@ -68,7 +80,7 @@ export const useChatStore = defineStore(
         })
 
         // 执行导入
-        const importResult = await window.chatApi.import(result.filePath)
+        const importResult = await window.chatApi.import(filePath)
 
         // 取消监听
         unsubscribe()
@@ -76,8 +88,8 @@ export const useChatStore = defineStore(
         if (importResult.success && importResult.sessionId) {
           // 刷新会话列表
           await loadSessions()
-          // 不自动选中新会话，保持在欢迎页
-          // currentSessionId.value = importResult.sessionId
+          // 自动选中新导入的会话，进入分析页面
+          currentSessionId.value = importResult.sessionId
           return { success: true }
         } else {
           return { success: false, error: importResult.error || '导入失败' }
@@ -143,6 +155,7 @@ export const useChatStore = defineStore(
       // Actions
       loadSessions,
       importFile,
+      importFileFromPath,
       selectSession,
       deleteSession,
       clearSelection,

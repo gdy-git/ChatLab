@@ -94,6 +94,16 @@ function createDatabase(sessionId: string): Database.Database {
       name TEXT NOT NULL
     );
 
+    -- 成员昵称历史表
+    CREATE TABLE IF NOT EXISTS member_name_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      member_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      start_ts INTEGER NOT NULL,
+      end_ts INTEGER,
+      FOREIGN KEY(member_id) REFERENCES member(id)
+    );
+
     -- 消息表
     CREATE TABLE IF NOT EXISTS message (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -107,6 +117,7 @@ function createDatabase(sessionId: string): Database.Database {
     -- 索引
     CREATE INDEX IF NOT EXISTS idx_message_ts ON message(ts);
     CREATE INDEX IF NOT EXISTS idx_message_sender ON message(sender_id);
+    CREATE INDEX IF NOT EXISTS idx_member_name_history_member_id ON member_name_history(member_id);
   `)
 
   return db
@@ -158,33 +169,83 @@ export function importData(parseResult: ParseResult): string {
       const insertMember = db.prepare(`
         INSERT OR IGNORE INTO member (platform_id, name) VALUES (?, ?)
       `)
-      const updateMemberName = db.prepare(`
-        UPDATE member SET name = ? WHERE platform_id = ?
-      `)
       const getMemberId = db.prepare(`
         SELECT id FROM member WHERE platform_id = ?
       `)
 
       const memberIdMap = new Map<string, number>()
 
+      // 初始化成员表（使用初始昵称）
       for (const member of parseResult.members) {
         insertMember.run(member.platformId, member.name)
-        // 更新为最新昵称
-        updateMemberName.run(member.name, member.platformId)
         const row = getMemberId.get(member.platformId) as { id: number }
         memberIdMap.set(member.platformId, row.id)
       }
 
-      // 批量插入消息
+      // 按时间戳升序排序消息（用于追踪昵称变化）
+      const sortedMessages = [...parseResult.messages].sort((a, b) => a.timestamp - b.timestamp)
+
+      // 追踪每个成员的昵称历史
+      // Map<platformId, { currentName: string, lastSeenTs: number }>
+      const nicknameTracker = new Map<string, { currentName: string; lastSeenTs: number }>()
+
+      // 准备 SQL 语句
       const insertMessage = db.prepare(`
         INSERT INTO message (sender_id, ts, type, content) VALUES (?, ?, ?, ?)
       `)
+      const insertNameHistory = db.prepare(`
+        INSERT INTO member_name_history (member_id, name, start_ts, end_ts)
+        VALUES (?, ?, ?, ?)
+      `)
+      const updateMemberName = db.prepare(`
+        UPDATE member SET name = ? WHERE platform_id = ?
+      `)
+      const updateNameHistoryEndTs = db.prepare(`
+        UPDATE member_name_history
+        SET end_ts = ?
+        WHERE member_id = ? AND end_ts IS NULL
+      `)
 
-      for (const msg of parseResult.messages) {
+      // 遍历排序后的消息
+      for (const msg of sortedMessages) {
         const senderId = memberIdMap.get(msg.senderPlatformId)
-        if (senderId !== undefined) {
-          insertMessage.run(senderId, msg.timestamp, msg.type, msg.content)
+        if (senderId === undefined) continue
+
+        // 插入消息
+        insertMessage.run(senderId, msg.timestamp, msg.type, msg.content)
+
+        // 从消息中获取发送者的昵称
+        const currentName = msg.senderName
+        const tracker = nicknameTracker.get(msg.senderPlatformId)
+
+        if (!tracker) {
+          // 首次出现，记录初始昵称
+          nicknameTracker.set(msg.senderPlatformId, {
+            currentName,
+            lastSeenTs: msg.timestamp,
+          })
+          // 插入第一条昵称历史记录（end_ts 为 NULL，表示当前使用中）
+          insertNameHistory.run(senderId, currentName, msg.timestamp, null)
+        } else if (tracker.currentName !== currentName) {
+          // 昵称发生变化
+          // 1. 关闭旧昵称的时间段（end_ts 设为当前消息时间戳）
+          updateNameHistoryEndTs.run(msg.timestamp, senderId)
+
+          // 2. 插入新昵称记录
+          insertNameHistory.run(senderId, currentName, msg.timestamp, null)
+
+          // 3. 更新追踪器
+          tracker.currentName = currentName
+          tracker.lastSeenTs = msg.timestamp
+        } else {
+          // 昵称未变化，仅更新最后见到的时间戳
+          tracker.lastSeenTs = msg.timestamp
         }
+      }
+
+      // 更新 member 表中的最新昵称
+      for (const [platformId, tracker] of nicknameTracker.entries()) {
+        updateMemberName.run(tracker.currentName, platformId)
       }
     })
 
@@ -418,7 +479,7 @@ export function getAvailableYears(sessionId: string): number[] {
         `
       SELECT DISTINCT CAST(strftime('%Y', ts, 'unixepoch', 'localtime') AS INTEGER) as year
       FROM message
-      ORDER BY year
+      ORDER BY year DESC
     `
       )
       .all() as Array<{ year: number }>
@@ -631,4 +692,32 @@ export function getTimeRange(sessionId: string): { start: number; end: number } 
 export function getDbDirectory(): string {
   ensureDbDir()
   return getDbDir()
+}
+
+/**
+ * 获取成员的历史昵称记录
+ */
+export function getMemberNameHistory(
+  sessionId: string,
+  memberId: number
+): Array<{ name: string; startTs: number; endTs: number | null }> {
+  const db = openDatabase(sessionId)
+  if (!db) return []
+
+  try {
+    const rows = db
+      .prepare(
+        `
+      SELECT name, start_ts as startTs, end_ts as endTs
+      FROM member_name_history
+      WHERE member_id = ?
+      ORDER BY start_ts DESC
+    `
+      )
+      .all(memberId) as Array<{ name: string; startTs: number; endTs: number | null }>
+
+    return rows
+  } finally {
+    db.close()
+  }
 }

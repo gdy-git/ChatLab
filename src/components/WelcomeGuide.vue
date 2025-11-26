@@ -7,6 +7,7 @@ const chatStore = useChatStore()
 const { isImporting, importProgress } = storeToRefs(chatStore)
 
 const importError = ref<string | null>(null)
+const isDragOver = ref(false)
 
 const features = [
   {
@@ -39,6 +40,53 @@ async function handleImport() {
   importError.value = null
   const result = await chatStore.importFile()
   if (!result.success && result.error && result.error !== '未选择文件') {
+    importError.value = result.error
+  }
+}
+
+// 拖拽事件处理
+function handleDragOver(e: DragEvent) {
+  e.preventDefault()
+  e.stopPropagation()
+  isDragOver.value = true
+}
+
+function handleDragLeave(e: DragEvent) {
+  e.preventDefault()
+  e.stopPropagation()
+  isDragOver.value = false
+}
+
+async function handleDrop(e: DragEvent) {
+  e.preventDefault()
+  e.stopPropagation()
+  isDragOver.value = false
+
+  if (isImporting.value) return
+
+  const files = e.dataTransfer?.files
+  if (!files || files.length === 0) return
+
+  const file = files[0]
+
+  // 使用 Electron 的 webUtils 获取文件真实路径
+  let filePath: string
+  try {
+    filePath = window.electron.webUtils.getPathForFile(file)
+  } catch (error) {
+    console.error('获取文件路径失败:', error)
+    importError.value = '无法读取文件路径'
+    return
+  }
+
+  if (!filePath) {
+    importError.value = '无法读取文件路径'
+    return
+  }
+
+  importError.value = null
+  const result = await chatStore.importFileFromPath(filePath)
+  if (!result.success && result.error) {
     importError.value = result.error
   }
 }
@@ -85,7 +133,7 @@ function getProgressText(): string {
         >
           ChatLens
         </h1>
-        <p class="text-lg font-medium text-gray-500 dark:text-gray-400">ChatLens 帮你发现那些被遗忘的有趣瞬间</p>
+        <p class="text-lg font-medium text-gray-500 dark:text-gray-400">获取你的聊天记录分析报告</p>
       </div>
 
       <!-- Feature Cards -->
@@ -106,38 +154,65 @@ function getProgressText(): string {
 
       <!-- Actions -->
       <div class="flex flex-col items-center space-y-6">
-        <!-- Import Button -->
-        <button
-          class="group relative inline-flex items-center justify-center rounded-full bg-linear-to-r from-purple-500 to-pink-500 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-purple-500/30 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-purple-500/30 disabled:cursor-not-allowed disabled:opacity-70"
-          :class="[isImporting ? '' : 'hover:scale-105 hover:shadow-purple-500/50']"
-          :disabled="isImporting"
-          @click="handleImport"
+        <!-- Import Drop Zone -->
+        <div
+          class="group relative flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-purple-300 bg-white px-12 py-12 transition-all duration-300 hover:border-purple-400 hover:bg-purple-50/50 focus:outline-none focus:ring-4 focus:ring-purple-500/20 dark:border-purple-700 dark:bg-gray-900 dark:hover:border-purple-500 dark:hover:bg-purple-900/10"
+          :class="{
+            'border-purple-500 bg-purple-50 dark:border-purple-400 dark:bg-purple-900/20': isDragOver && !isImporting,
+            'cursor-not-allowed opacity-70': isImporting,
+            'hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10': !isImporting,
+          }"
+          @click="!isImporting && handleImport()"
+          @dragover="handleDragOver"
+          @dragleave="handleDragLeave"
+          @drop="handleDrop"
         >
-          <template v-if="isImporting">
-            <UIcon name="i-heroicons-arrow-path" class="mr-2 h-5 w-5 animate-spin" />
-            {{ getProgressText() }}
-          </template>
-          <template v-else>
+          <!-- Icon -->
+          <div
+            class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-linear-to-br from-purple-100 to-pink-100 transition-transform duration-300 dark:from-purple-900/30 dark:to-pink-900/30"
+            :class="{ 'scale-110': isDragOver && !isImporting, 'animate-pulse': isImporting }"
+          >
             <UIcon
+              v-if="!isImporting"
               name="i-heroicons-arrow-up-tray"
-              class="mr-2 h-5 w-5 transition-transform group-hover:-translate-y-1"
+              class="h-8 w-8 text-purple-600 transition-transform group-hover:-translate-y-1 dark:text-purple-400"
             />
-            立即导入聊天记录
-          </template>
-        </button>
+            <UIcon
+              v-else
+              name="i-heroicons-arrow-path"
+              class="h-8 w-8 animate-spin text-purple-600 dark:text-purple-400"
+            />
+          </div>
 
-        <!-- Progress Bar -->
-        <div v-if="isImporting && importProgress" class="w-64">
-          <UProgress :value="importProgress.progress" size="sm" color="purple" />
-          <p class="mt-2 text-center text-xs text-gray-500">
-            {{ importProgress.message }}
-          </p>
+          <!-- Text -->
+          <div class="w-full text-center">
+            <template v-if="isImporting && importProgress">
+              <!-- 导入中显示进度 -->
+              <p class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">{{ getProgressText() }}</p>
+              <div class="mx-auto w-full max-w-md">
+                <UProgress :value="importProgress.progress" size="md" color="purple" />
+              </div>
+              <p class="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                {{ importProgress.message }}
+              </p>
+            </template>
+            <template v-else>
+              <!-- 默认状态 -->
+              <p class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ isDragOver ? '松开鼠标导入文件' : '点击选择或拖拽文件到这里' }}
+              </p>
+              <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">支持 QQ、微信聊天记录（JSON/TXT 格式）</p>
+            </template>
+          </div>
         </div>
 
         <!-- Error Message -->
-        <div v-if="importError" class="flex items-center text-sm text-red-500">
-          <UIcon name="i-heroicons-exclamation-circle" class="mr-1.5 h-4 w-4" />
-          {{ importError }}
+        <div
+          v-if="importError"
+          class="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400"
+        >
+          <UIcon name="i-heroicons-exclamation-circle" class="h-5 w-5 shrink-0" />
+          <span>{{ importError }}</span>
         </div>
 
         <!-- Tutorial Links -->
@@ -158,9 +233,6 @@ function getProgressText(): string {
             QQ导入教程
           </button>
         </div>
-
-        <!-- Supported Formats -->
-        <p class="text-xs text-gray-400 dark:text-gray-500">支持 QQ、微信聊天记录（JSON/TXT 格式）</p>
       </div>
     </div>
   </div>

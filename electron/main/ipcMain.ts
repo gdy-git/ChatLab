@@ -274,6 +274,18 @@ const mainIpcMain = (win: BrowserWindow) => {
   )
 
   /**
+   * 获取成员历史昵称
+   */
+  ipcMain.handle('chat:getMemberNameHistory', async (_, sessionId: string, memberId: number) => {
+    try {
+      return database.getMemberNameHistory(sessionId, memberId)
+    } catch (error) {
+      console.error('获取成员历史昵称失败：', error)
+      return []
+    }
+  })
+
+  /**
    * 获取每小时活跃度分布
    */
   ipcMain.handle(

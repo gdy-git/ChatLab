@@ -3,10 +3,11 @@ import { electronAPI } from '@electron-toolkit/preload'
 import type {
   AnalysisSession,
   MemberActivity,
+  MemberNameHistory,
   HourlyActivity,
   DailyActivity,
   MessageType,
-  ImportProgress
+  ImportProgress,
 } from '../../src/types/chat'
 
 // Custom APIs for renderer
@@ -18,7 +19,7 @@ const api = {
       'check-update',
       'get-gpu-acceleration',
       'set-gpu-acceleration',
-      'save-gpu-acceleration'
+      'save-gpu-acceleration',
     ]
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, data)
@@ -33,7 +34,7 @@ const api = {
   },
   removeListener: (channel: string, func: (...args: unknown[]) => void) => {
     ipcRenderer.removeListener(channel, func)
-  }
+  },
 }
 
 // Chat Analysis API
@@ -83,30 +84,28 @@ const chatApi = {
   /**
    * 获取成员活跃度排行
    */
-  getMemberActivity: (
-    sessionId: string,
-    filter?: { startTs?: number; endTs?: number }
-  ): Promise<MemberActivity[]> => {
+  getMemberActivity: (sessionId: string, filter?: { startTs?: number; endTs?: number }): Promise<MemberActivity[]> => {
     return ipcRenderer.invoke('chat:getMemberActivity', sessionId, filter)
+  },
+
+  /**
+   * 获取成员历史昵称
+   */
+  getMemberNameHistory: (sessionId: string, memberId: number): Promise<MemberNameHistory[]> => {
+    return ipcRenderer.invoke('chat:getMemberNameHistory', sessionId, memberId)
   },
 
   /**
    * 获取每小时活跃度分布
    */
-  getHourlyActivity: (
-    sessionId: string,
-    filter?: { startTs?: number; endTs?: number }
-  ): Promise<HourlyActivity[]> => {
+  getHourlyActivity: (sessionId: string, filter?: { startTs?: number; endTs?: number }): Promise<HourlyActivity[]> => {
     return ipcRenderer.invoke('chat:getHourlyActivity', sessionId, filter)
   },
 
   /**
    * 获取每日活跃度趋势
    */
-  getDailyActivity: (
-    sessionId: string,
-    filter?: { startTs?: number; endTs?: number }
-  ): Promise<DailyActivity[]> => {
+  getDailyActivity: (sessionId: string, filter?: { startTs?: number; endTs?: number }): Promise<DailyActivity[]> => {
     return ipcRenderer.invoke('chat:getDailyActivity', sessionId, filter)
   },
 
@@ -152,7 +151,7 @@ const chatApi = {
     return () => {
       ipcRenderer.removeListener('chat:importProgress', handler)
     }
-  }
+  },
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

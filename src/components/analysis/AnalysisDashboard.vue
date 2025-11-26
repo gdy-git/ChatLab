@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { storeToRefs } from 'pinia'
 import type { AnalysisSession, MemberActivity, HourlyActivity, DailyActivity, MessageType } from '@/types/chat'
+import UITabs from '@/components/UI/Tabs.vue'
 import OverviewTab from './OverviewTab.vue'
 import MembersTab from './MembersTab.vue'
 import TimelineTab from './TimelineTab.vue'
@@ -21,7 +22,7 @@ const timeRange = ref<{ start: number; end: number } | null>(null)
 
 // 年份筛选
 const availableYears = ref<number[]>([])
-const selectedYear = ref<number | null>(null) // null 表示全部
+const selectedYear = ref<number>(0) // 0 表示全部
 
 // Tab 配置
 const tabs = [
@@ -34,7 +35,7 @@ const activeTab = ref('overview')
 
 // 计算时间过滤参数
 const timeFilter = computed(() => {
-  if (selectedYear.value === null) {
+  if (selectedYear.value === 0) {
     return undefined
   }
   // 计算年份的开始和结束时间戳
@@ -48,7 +49,7 @@ const timeFilter = computed(() => {
 
 // 年份选项
 const yearOptions = computed(() => {
-  const options = [{ label: '全部时间', value: null as number | null }]
+  const options = [{ label: '全部时间', value: 0 }]
   for (const year of availableYears.value) {
     options.push({ label: `${year}年`, value: year })
   }
@@ -128,7 +129,7 @@ async function loadData() {
 watch(
   currentSessionId,
   () => {
-    selectedYear.value = null // 重置年份筛选
+    selectedYear.value = 0 // 重置年份筛选
     loadData()
   },
   { immediate: true }
@@ -179,13 +180,6 @@ onMounted(loadData)
 
           <!-- Year Filter & Actions -->
           <div class="flex items-center gap-3">
-            <!-- Year Filter -->
-            <USelectMenu v-model="selectedYear" :items="yearOptions" value-key="value" class="w-32" size="sm">
-              <template #leading>
-                <UIcon name="i-heroicons-calendar" class="h-4 w-4 text-gray-400" />
-              </template>
-            </USelectMenu>
-
             <!-- Actions -->
             <UButton icon="i-heroicons-arrow-down-tray" color="gray" variant="ghost" size="sm" disabled>
               生成报告
@@ -209,6 +203,7 @@ onMounted(loadData)
             <UIcon :name="tab.icon" class="h-4 w-4" />
             {{ tab.label }}
           </button>
+          <UITabs v-model="selectedYear" :items="yearOptions" size="sm" />
         </div>
       </div>
 
@@ -239,7 +234,11 @@ onMounted(loadData)
             :filtered-message-count="filteredMessageCount"
             :filtered-member-count="filteredMemberCount"
           />
-          <MembersTab v-else-if="activeTab === 'members'" :member-activity="memberActivity" />
+          <MembersTab
+            v-else-if="activeTab === 'members'"
+            :session-id="currentSessionId!"
+            :member-activity="memberActivity"
+          />
           <TimelineTab
             v-else-if="activeTab === 'timeline'"
             :daily-activity="dailyActivity"

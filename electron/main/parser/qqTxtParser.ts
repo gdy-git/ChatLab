@@ -10,7 +10,7 @@ import {
   MessageType,
   type ParseResult,
   type ParsedMember,
-  type ParsedMessage
+  type ParsedMessage,
 } from '../../../src/types/chat'
 
 /**
@@ -146,9 +146,10 @@ export const qqTxtParser: ChatParser = {
         if (content) {
           messages.push({
             senderPlatformId: currentSender.platformId,
+            senderName: currentSender.name,
             timestamp: currentTimestamp,
             type: detectMessageType(content),
-            content
+            content,
           })
         }
       }
@@ -180,7 +181,7 @@ export const qqTxtParser: ChatParser = {
         // 更新成员信息（保留最新昵称）
         memberMap.set(qqNumber, {
           platformId: qqNumber,
-          name
+          name,
         })
 
         currentSender = { platformId: qqNumber, name }
@@ -198,11 +199,10 @@ export const qqTxtParser: ChatParser = {
       meta: {
         name: groupName,
         platform: ChatPlatform.QQ,
-        type: ChatType.GROUP // TXT 导出通常是群聊
+        type: ChatType.GROUP, // TXT 导出通常是群聊
       },
       members: Array.from(memberMap.values()),
-      messages
+      messages,
     }
-  }
+  },
 }
-

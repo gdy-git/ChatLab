@@ -10,7 +10,7 @@ import {
   MessageType,
   type ParseResult,
   type ParsedMember,
-  type ParsedMessage
+  type ParsedMessage,
 } from '../../../src/types/chat'
 
 /**
@@ -157,7 +157,7 @@ export const qqJsonParser: ChatParser = {
     const meta = {
       name: data.chatInfo.name,
       platform: ChatPlatform.QQ,
-      type: data.chatInfo.type === 'group' ? ChatType.GROUP : ChatType.PRIVATE
+      type: data.chatInfo.type === 'group' ? ChatType.GROUP : ChatType.PRIVATE,
     }
 
     // 收集成员信息（使用 Map 去重，保留最新昵称）
@@ -172,7 +172,7 @@ export const qqJsonParser: ChatParser = {
       // 更新成员信息（保留最新昵称）
       memberMap.set(platformId, {
         platformId,
-        name: msg.sender.name || platformId
+        name: msg.sender.name || platformId,
       })
 
       // 转换时间戳（QQ 导出是毫秒，需要转为秒）
@@ -191,17 +191,17 @@ export const qqJsonParser: ChatParser = {
 
       messages.push({
         senderPlatformId: platformId,
+        senderName: msg.sender.name || platformId,
         timestamp,
         type,
-        content: textContent || null
+        content: textContent || null,
       })
     }
 
     return {
       meta,
       members: Array.from(memberMap.values()),
-      messages
+      messages,
     }
-  }
+  },
 }
-

@@ -5,6 +5,7 @@ export { default as LineChart } from './LineChart.vue'
 export { default as BarChart } from './BarChart.vue'
 export { default as MemberRankList } from './MemberRankList.vue'
 export { default as ProgressBar } from './ProgressBar.vue'
+export { default as MemberNicknameHistory } from './MemberNicknameHistory.vue'
 
 // 导出类型定义
 export type { DoughnutChartData } from './DoughnutChart.vue'

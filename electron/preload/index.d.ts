@@ -2,10 +2,11 @@ import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   AnalysisSession,
   MemberActivity,
+  MemberNameHistory,
   HourlyActivity,
   DailyActivity,
   MessageType,
-  ImportProgress
+  ImportProgress,
 } from '../../src/types/chat'
 
 interface TimeFilter {
@@ -21,6 +22,7 @@ interface ChatApi {
   deleteSession: (sessionId: string) => Promise<boolean>
   getAvailableYears: (sessionId: string) => Promise<number[]>
   getMemberActivity: (sessionId: string, filter?: TimeFilter) => Promise<MemberActivity[]>
+  getMemberNameHistory: (sessionId: string, memberId: number) => Promise<MemberNameHistory[]>
   getHourlyActivity: (sessionId: string, filter?: TimeFilter) => Promise<HourlyActivity[]>
   getDailyActivity: (sessionId: string, filter?: TimeFilter) => Promise<DailyActivity[]>
   getMessageTypeDistribution: (
