@@ -158,20 +158,59 @@ export function searchMessages(
 
 /**
  * 获取消息上下文（指定消息前后的消息）
+ * 使用消息 ID 方式获取精确的前后 N 条消息
+ *
+ * @param sessionId 会话 ID
+ * @param messageIds 消息 ID 列表（支持单个或批量）
+ * @param contextSize 上下文大小，前后各多少条消息，默认 20
  */
 export function getMessageContext(
   sessionId: string,
-  messageId: number,
-  contextSize: number = 5
+  messageIds: number | number[],
+  contextSize: number = 20
 ): SearchMessageResult[] {
   const db = openDatabase(sessionId)
   if (!db) return []
 
-  // 获取目标消息的时间戳
-  const targetMsg = db.prepare('SELECT ts FROM message WHERE id = ?').get(messageId) as { ts: number } | undefined
-  if (!targetMsg) return []
+  // 统一转为数组
+  const ids = Array.isArray(messageIds) ? messageIds : [messageIds]
+  if (ids.length === 0) return []
 
-  // 获取前后消息
+  // 收集所有上下文消息的 ID（使用 Set 去重）
+  const contextIds = new Set<number>()
+
+  for (const messageId of ids) {
+    // 添加目标消息本身
+    contextIds.add(messageId)
+
+    // 获取前 contextSize 条消息（id < messageId，按 id 降序取前 N 个）
+    const beforeSql = `
+      SELECT id FROM message
+      WHERE id < ?
+      ORDER BY id DESC
+      LIMIT ?
+    `
+    const beforeRows = db.prepare(beforeSql).all(messageId, contextSize) as { id: number }[]
+    beforeRows.forEach((row) => contextIds.add(row.id))
+
+    // 获取后 contextSize 条消息（id > messageId，按 id 升序取前 N 个）
+    const afterSql = `
+      SELECT id FROM message
+      WHERE id > ?
+      ORDER BY id ASC
+      LIMIT ?
+    `
+    const afterRows = db.prepare(afterSql).all(messageId, contextSize) as { id: number }[]
+    afterRows.forEach((row) => contextIds.add(row.id))
+  }
+
+  // 如果没有找到任何消息
+  if (contextIds.size === 0) return []
+
+  // 批量查询所有上下文消息
+  const idList = Array.from(contextIds)
+  const placeholders = idList.map(() => '?').join(', ')
+
   const sql = `
     SELECT
       msg.id,
@@ -182,19 +221,11 @@ export function getMessageContext(
       msg.type
     FROM message msg
     JOIN member m ON msg.sender_id = m.id
-    WHERE COALESCE(m.account_name, '') != '系统消息'
-      AND msg.ts BETWEEN ? AND ?
-    ORDER BY msg.ts ASC
-    LIMIT ?
+    WHERE msg.id IN (${placeholders})
+    ORDER BY msg.id ASC
   `
 
-  // 获取前后 contextSize 秒的消息（假设平均每秒 1 条消息）
-  const timeWindow = contextSize * 60 // 前后各 contextSize 分钟
-  const rows = db.prepare(sql).all(
-    targetMsg.ts - timeWindow,
-    targetMsg.ts + timeWindow,
-    contextSize * 2 + 1
-  ) as SearchMessageResult[]
+  const rows = db.prepare(sql).all(...idList) as SearchMessageResult[]
 
   return rows
 }

@@ -349,22 +349,13 @@ export class OpenAICompatibleService implements ILLMService {
   }
 
   async validateApiKey(): Promise<boolean> {
-    console.log('[OpenAICompatibleService:validateApiKey] 开始验证:', {
-      baseUrl: this.baseUrl,
-      model: this.model,
-      hasApiKey: !!this.apiKey && this.apiKey !== 'sk-no-key-required',
-    })
-
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
       this.setAuthHeaders(headers)
 
-      console.log('[OpenAICompatibleService:validateApiKey] 请求头:', Object.keys(headers))
-
       const url = `${this.baseUrl}/chat/completions`
-      console.log('[OpenAICompatibleService:validateApiKey] 请求 URL:', url)
 
       // 发送一个简单的测试请求来验证连接和认证
       const response = await fetch(url, {
@@ -377,8 +368,6 @@ export class OpenAICompatibleService implements ILLMService {
         }),
       })
 
-      console.log('[OpenAICompatibleService:validateApiKey] 响应状态:', response.status, response.statusText)
-
       // 200 表示成功，401/403 表示认证失败，其他状态可能是参数问题但服务可达
       if (response.ok) {
         return true
@@ -386,17 +375,13 @@ export class OpenAICompatibleService implements ILLMService {
 
       // 认证失败
       if (response.status === 401 || response.status === 403) {
-        const text = await response.text()
-        console.log('[OpenAICompatibleService:validateApiKey] 认证失败:', text.slice(0, 500))
         return false
       }
 
       // 其他错误（如 400 参数错误）但服务可达，认为验证通过
       // 因为这说明认证成功了，只是请求参数有问题
-      console.log('[OpenAICompatibleService:validateApiKey] 服务可达，状态码:', response.status)
       return true
-    } catch (error) {
-      console.error('[OpenAICompatibleService:validateApiKey] 验证异常:', error)
+    } catch {
       return false
     }
   }

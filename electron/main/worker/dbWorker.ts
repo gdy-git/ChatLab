@@ -99,7 +99,7 @@ const syncHandlers: Record<string, (payload: any) => any> = {
 
   // AI 查询
   searchMessages: (p) => searchMessages(p.sessionId, p.keywords, p.filter, p.limit, p.offset, p.senderId),
-  getMessageContext: (p) => getMessageContext(p.sessionId, p.messageId, p.contextSize),
+  getMessageContext: (p) => getMessageContext(p.sessionId, p.messageIds, p.contextSize),
   getRecentMessages: (p) => getRecentMessages(p.sessionId, p.filter, p.limit),
   getConversationBetween: (p) => getConversationBetween(p.sessionId, p.memberId1, p.memberId2, p.filter, p.limit),
 }

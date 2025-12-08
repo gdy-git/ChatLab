@@ -402,13 +402,14 @@ export async function searchMessages(
 
 /**
  * 获取消息上下文
+ * 支持单个或批量消息 ID，返回合并去重后的上下文消息
  */
 export async function getMessageContext(
   sessionId: string,
-  messageId: number,
+  messageIds: number | number[],
   contextSize?: number
 ): Promise<SearchMessageResult[]> {
-  return sendToWorker('getMessageContext', { sessionId, messageId, contextSize })
+  return sendToWorker('getMessageContext', { sessionId, messageIds, contextSize })
 }
 
 /**

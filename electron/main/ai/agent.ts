@@ -156,19 +156,21 @@ function getLockedPromptSection(chatType: 'group' | 'private'): string {
 
 你可以使用以下工具来获取${chatTypeDesc}数据：
 
-1. search_messages - 根据关键词搜索聊天记录，可指定 year/month 筛选时间段，也可指定 sender_id 筛选特定成员的发言
-2. get_recent_messages - 获取指定时间段的聊天消息，可指定 year 和 month
+1. search_messages - 根据关键词搜索聊天记录，支持时间筛选和发送者筛选
+2. get_recent_messages - 获取指定时间段的聊天消息
 3. get_member_stats - 获取成员活跃度统计
 4. get_time_stats - 获取时间分布统计
 5. get_group_members - 获取成员列表，包括 id、QQ号、账号名称、昵称、别名和消息统计
 6. get_member_name_history - 获取成员的昵称变更历史，需要先通过 get_group_members 获取成员 ID
 7. get_conversation_between - 获取两个成员之间的对话记录，需要先通过 get_group_members 获取两人的成员 ID
+8. get_message_context - 根据消息 ID 获取前后的上下文消息，支持批量查询，消息 ID 可从其他搜索工具的返回结果中获取
 
 ${memberNote}
-时间处理要求：
-- 如果用户提到"X月"但没有指定年份，默认使用当前年份（${now.getFullYear()}年）
-- 如果当前月份还没到用户提到的月份，则使用去年
-- 例如：现在是${now.getFullYear()}年${now.getMonth() + 1}月，用户问"10月的聊天"应该查询${now.getMonth() + 1 >= 10 ? now.getFullYear() : now.getFullYear() - 1}年10月
+时间参数：按用户提到的精度组合 year/month/day/hour
+- "10月" → year: ${now.getFullYear()}, month: 10
+- "10月1号" → year: ${now.getFullYear()}, month: 10, day: 1
+- "10月1号下午3点" → year: ${now.getFullYear()}, month: 10, day: 1, hour: 15
+未指定年份默认${now.getFullYear()}年，若该月份未到则用${now.getFullYear() - 1}年
 
 根据用户的问题，选择合适的工具获取数据，然后基于数据给出回答。`
 }
@@ -264,20 +266,17 @@ export class Agent {
    * @param userMessage 用户消息
    */
   async execute(userMessage: string): Promise<AgentResult> {
-    aiLogger.info('Agent', '开始执行', {
-      userMessage: userMessage.slice(0, 100),
-      historyLength: this.historyMessages.length,
-    })
+    aiLogger.info('Agent', '用户问题', userMessage)
 
     // 检查是否已中止
     if (this.isAborted()) {
-      aiLogger.info('Agent', '执行前已中止')
       return { content: '', toolsUsed: [], toolRounds: 0 }
     }
 
     // 初始化消息（包含历史记录）
+    const systemPrompt = buildSystemPrompt(this.chatType, this.promptConfig)
     this.messages = [
-      { role: 'system', content: buildSystemPrompt(this.chatType, this.promptConfig) },
+      { role: 'system', content: systemPrompt },
       ...this.historyMessages, // 插入历史对话
       { role: 'user', content: userMessage },
     ]
@@ -286,13 +285,11 @@ export class Agent {
 
     // 获取所有工具定义
     const tools = await getAllToolDefinitions()
-    aiLogger.info('Agent', '可用工具', { count: tools.length, names: tools.map((t) => t.function.name) })
 
     // 执行循环
     while (this.toolRounds < this.config.maxToolRounds!) {
       // 每轮开始时检查是否中止
       if (this.isAborted()) {
-        aiLogger.info('Agent', '循环中检测到中止信号')
         return {
           content: '',
           toolsUsed: this.toolsUsed,
@@ -306,40 +303,22 @@ export class Agent {
         abortSignal: this.abortSignal,
       })
 
-      aiLogger.info('Agent', 'LLM 响应', {
-        finishReason: response.finishReason,
-        hasToolCalls: !!response.tool_calls,
-        contentLength: response.content?.length,
-      })
-
       let toolCallsToProcess = response.tool_calls
 
       // 如果没有标准 tool_calls，尝试 fallback 解析
       if (response.finishReason !== 'tool_calls' || !response.tool_calls) {
         // Fallback: 检查内容中是否有 <tool_call> 标签
         if (hasToolCallTags(response.content)) {
-          aiLogger.info('Agent', '检测到 <tool_call> 标签，执行 fallback 解析')
-
           // 提取 thinking 内容
-          const { thinking, cleanContent } = extractThinkingContent(response.content)
-          if (thinking) {
-            aiLogger.info('Agent', '提取到 thinking 内容', { length: thinking.length })
-          }
+          const { cleanContent } = extractThinkingContent(response.content)
 
           // 解析 tool_call 标签
           const fallbackToolCalls = parseToolCallTags(response.content)
           if (fallbackToolCalls && fallbackToolCalls.length > 0) {
-            aiLogger.info('Agent', 'Fallback 解析成功', {
-              toolCount: fallbackToolCalls.length,
-              tools: fallbackToolCalls.map((tc) => tc.function.name),
-            })
             toolCallsToProcess = fallbackToolCalls
           } else {
             // 解析失败，返回清理后的内容
-            aiLogger.info('Agent', '执行完成', {
-              toolsUsed: this.toolsUsed,
-              toolRounds: this.toolRounds,
-            })
+            aiLogger.info('Agent', 'AI 回复', cleanContent)
             return {
               content: cleanContent,
               toolsUsed: this.toolsUsed,
@@ -348,10 +327,7 @@ export class Agent {
           }
         } else {
           // 没有 tool_call 标签，正常完成
-          aiLogger.info('Agent', '执行完成', {
-            toolsUsed: this.toolsUsed,
-            toolRounds: this.toolRounds,
-          })
+          aiLogger.info('Agent', 'AI 回复', response.content)
           return {
             content: response.content,
             toolsUsed: this.toolsUsed,
@@ -386,21 +362,18 @@ export class Agent {
    * @param onChunk 流式回调
    */
   async executeStream(userMessage: string, onChunk: (chunk: AgentStreamChunk) => void): Promise<AgentResult> {
-    aiLogger.info('Agent', '开始流式执行', {
-      userMessage: userMessage.slice(0, 100),
-      historyLength: this.historyMessages.length,
-    })
+    aiLogger.info('Agent', '用户问题', userMessage)
 
     // 检查是否已中止
     if (this.isAborted()) {
-      aiLogger.info('Agent', '执行前已中止')
       onChunk({ type: 'done', isFinished: true })
       return { content: '', toolsUsed: [], toolRounds: 0 }
     }
 
     // 初始化消息（包含历史记录）
+    const systemPrompt = buildSystemPrompt(this.chatType, this.promptConfig)
     this.messages = [
-      { role: 'system', content: buildSystemPrompt(this.chatType, this.promptConfig) },
+      { role: 'system', content: systemPrompt },
       ...this.historyMessages, // 插入历史对话
       { role: 'user', content: userMessage },
     ]
@@ -414,7 +387,6 @@ export class Agent {
     while (this.toolRounds < this.config.maxToolRounds!) {
       // 每轮开始时检查是否中止
       if (this.isAborted()) {
-        aiLogger.info('Agent', '循环中检测到中止信号')
         onChunk({ type: 'done', isFinished: true })
         return {
           content: finalContent,
@@ -436,7 +408,6 @@ export class Agent {
       })) {
         // 每个 chunk 时检查是否中止
         if (this.isAborted()) {
-          aiLogger.info('Agent', '流式过程中检测到中止信号')
           onChunk({ type: 'done', isFinished: true })
           return {
             content: finalContent + accumulatedContent,
@@ -448,14 +419,9 @@ export class Agent {
           accumulatedContent += chunk.content
 
           // 检测是否开始出现 <tool_call> 标签（用于 fallback 解析）
-          // 只对 <tool_call> 进入缓冲模式
-          // 注意：<think> 标签由某些 LLM（如 MiniMax）输出，但不应该影响正常内容发送
-          // <think> 内容会在最终输出时被清理
           if (!isBufferingToolCall) {
-            // 只检查 <tool_call> 标签
             if (/<tool_call>/i.test(accumulatedContent)) {
               isBufferingToolCall = true
-              aiLogger.info('Agent', '检测到 tool_call 标签，进入缓冲模式')
               // 发送标签之前的内容（如果有）
               const tagStart = accumulatedContent.indexOf('<tool_call>')
               if (tagStart > displayedContent.length) {
@@ -483,32 +449,24 @@ export class Agent {
           if (chunk.finishReason !== 'tool_calls' || !toolCalls) {
             // Fallback: 检查内容中是否有 <tool_call> 标签
             if (hasToolCallTags(accumulatedContent)) {
-              aiLogger.info('Agent', '检测到 <tool_call> 标签，执行 fallback 解析')
-
               // 提取 thinking 内容
-              const { thinking, cleanContent } = extractThinkingContent(accumulatedContent)
-              if (thinking) {
-                aiLogger.info('Agent', '提取到 thinking 内容', { length: thinking.length })
-              }
+              const { cleanContent } = extractThinkingContent(accumulatedContent)
 
               // 解析 tool_call 标签
               const fallbackToolCalls = parseToolCallTags(accumulatedContent)
               if (fallbackToolCalls && fallbackToolCalls.length > 0) {
-                aiLogger.info('Agent', 'Fallback 解析成功', {
-                  toolCount: fallbackToolCalls.length,
-                  tools: fallbackToolCalls.map((tc) => tc.function.name),
-                })
                 toolCalls = fallbackToolCalls
                 // 更新累积内容为清理后的内容（移除 think 和 tool_call 标签）
                 accumulatedContent = cleanContent.replace(/<tool_call>[\s\S]*?<\/tool_call>/gi, '').trim()
                 // 不返回，继续执行工具调用
               } else {
-                // 解析失败，作为普通响应处理（发送清理后的内容）
+                // 解析失败，作为普通响应处理
                 const remainingContent = cleanContent.slice(displayedContent.length)
                 if (remainingContent) {
                   onChunk({ type: 'content', content: remainingContent })
                 }
                 finalContent = cleanContent
+                aiLogger.info('Agent', 'AI 回复', finalContent)
                 onChunk({ type: 'done', isFinished: true })
                 return {
                   content: finalContent,
@@ -518,18 +476,9 @@ export class Agent {
               }
             } else {
               // 没有 tool_call 标签，正常完成
-              // 清理 <think> 标签内容（某些 LLM 如 MiniMax 会输出思考过程）
               finalContent = extractThinkingContent(accumulatedContent).cleanContent
+              aiLogger.info('Agent', 'AI 回复', finalContent)
               onChunk({ type: 'done', isFinished: true })
-
-              aiLogger.info('Agent', '流式执行完成', {
-                toolsUsed: this.toolsUsed,
-                toolRounds: this.toolRounds,
-                finalContentLength: finalContent.length,
-                accumulatedContentLength: accumulatedContent.length,
-                finishReason: chunk.finishReason,
-              })
-
               return {
                 content: finalContent,
                 toolsUsed: this.toolsUsed,
@@ -583,7 +532,6 @@ export class Agent {
 
     // 检查是否已中止
     if (this.isAborted()) {
-      aiLogger.info('Agent', '达到最大轮数时已中止')
       onChunk({ type: 'done', isFinished: true })
       return {
         content: finalContent,
@@ -603,7 +551,6 @@ export class Agent {
       abortSignal: this.abortSignal,
     })) {
       if (this.isAborted()) {
-        aiLogger.info('Agent', '最后一轮流式过程中检测到中止信号')
         onChunk({ type: 'done', isFinished: true })
         break
       }
@@ -627,9 +574,10 @@ export class Agent {
    * 处理工具调用
    */
   private async handleToolCalls(toolCalls: ToolCall[], onChunk?: (chunk: AgentStreamChunk) => void): Promise<void> {
-    aiLogger.info('Agent', '处理工具调用', {
-      tools: toolCalls.map((tc) => tc.function.name),
-    })
+    // 记录调用的工具及参数
+    for (const tc of toolCalls) {
+      aiLogger.info('Agent', `工具调用: ${tc.function.name}`, tc.function.arguments)
+    }
 
     // 添加 assistant 消息（包含 tool_calls）
     this.messages.push({
@@ -657,17 +605,18 @@ export class Agent {
         })
       }
 
+      // 记录工具执行结果
+      if (result.success) {
+        aiLogger.info('Agent', `工具结果: ${tc.function.name}`, result.result)
+      } else {
+        aiLogger.warn('Agent', `工具失败: ${tc.function.name}`, result.error)
+      }
+
       // 添加工具结果消息
       this.messages.push({
         role: 'tool',
         content: result.success ? JSON.stringify(result.result) : `错误: ${result.error}`,
         tool_call_id: tc.id,
-      })
-
-      aiLogger.info('Agent', '工具执行结果', {
-        tool: tc.function.name,
-        success: result.success,
-        resultLength: result.success ? JSON.stringify(result.result).length : result.error?.length,
       })
     }
   }

@@ -283,20 +283,22 @@ export function getLockedPromptSectionPreview(chatType: 'group' | 'private'): st
 
 你可以使用以下工具来获取${chatTypeDesc}数据：
 
-1. search_messages - 根据关键词搜索聊天记录，可指定 year/month 筛选时间段，也可指定 sender_id 筛选特定成员的发言
-2. get_recent_messages - 获取指定时间段的聊天消息，可指定 year 和 month
+1. search_messages - 根据关键词搜索聊天记录，支持时间筛选和发送者筛选
+2. get_recent_messages - 获取指定时间段的聊天消息
 3. get_member_stats - 获取成员活跃度统计
 4. get_time_stats - 获取时间分布统计
 5. get_group_members - 获取成员列表，包括 id、QQ号、账号名称、昵称、别名和消息统计
 6. get_member_name_history - 获取成员的昵称变更历史，需要先通过 get_group_members 获取成员 ID
 7. get_conversation_between - 获取两个成员之间的对话记录，需要先通过 get_group_members 获取两人的成员 ID
+8. get_message_context - 根据消息 ID 获取前后的上下文消息，支持批量查询，消息 ID 可从其他搜索工具的返回结果中获取
 
 ${memberNote}
 
-时间处理要求：
-- 如果用户提到"X月"但没有指定年份，默认使用当前年份（${now.getFullYear()}年）
-- 如果当前月份还没到用户提到的月份，则使用去年
-- 例如：现在是${now.getFullYear()}年${now.getMonth() + 1}月，用户问"10月的聊天"应该查询${now.getMonth() + 1 >= 10 ? now.getFullYear() : now.getFullYear() - 1}年10月
+时间参数：按用户提到的精度组合 year/month/day/hour
+- "10月" → year: ${now.getFullYear()}, month: 10
+- "10月1号" → year: ${now.getFullYear()}, month: 10, day: 1
+- "10月1号下午3点" → year: ${now.getFullYear()}, month: 10, day: 1, hour: 15
+未指定年份默认${now.getFullYear()}年，若该月份未到则用${now.getFullYear() - 1}年
 
 根据用户的问题，选择合适的工具获取数据，然后基于数据给出回答。`
 }

@@ -48,6 +48,36 @@ const useBlocksRendering = computed(() => {
   return props.role === 'assistant' && props.contentBlocks && props.contentBlocks.length > 0
 })
 
+// 格式化时间参数显示
+function formatTimeParams(params: Record<string, unknown>): string {
+  // 优先使用 start_time/end_time
+  if (params.start_time || params.end_time) {
+    const start = params.start_time ? String(params.start_time) : ''
+    const end = params.end_time ? String(params.end_time) : ''
+    if (start && end) {
+      return `${start} ~ ${end}`
+    }
+    return start || end
+  }
+
+  // 使用 year/month/day/hour 组合
+  if (params.year) {
+    let result = `${params.year}年`
+    if (params.month) {
+      result += `${params.month}月`
+      if (params.day) {
+        result += `${params.day}日`
+        if (params.hour !== undefined) {
+          result += ` ${params.hour}点`
+        }
+      }
+    }
+    return result
+  }
+
+  return ''
+}
+
 // 格式化工具参数显示
 function formatToolParams(tool: ContentBlock extends { type: 'tool'; tool: infer T } ? T : never): string {
   if (!tool.params) return ''
@@ -55,21 +85,56 @@ function formatToolParams(tool: ContentBlock extends { type: 'tool'; tool: infer
   const name = tool.name
   const params = tool.params
 
-  if (name === 'search_messages' && params.keywords) {
-    const keywords = params.keywords as string[]
-    let result = `关键词: ${keywords.join(', ')}`
-    if (params.year) {
-      result += ` | 时间: ${params.year}年${params.month ? `${params.month}月` : ''}`
+  if (name === 'search_messages') {
+    const keywords = params.keywords as string[] | undefined
+    const parts: string[] = []
+
+    if (keywords && keywords.length > 0) {
+      parts.push(`关键词: ${keywords.join(', ')}`)
     }
-    return result
+
+    const timeStr = formatTimeParams(params)
+    if (timeStr) {
+      parts.push(`时间: ${timeStr}`)
+    }
+
+    return parts.join(' | ')
   }
 
   if (name === 'get_recent_messages') {
-    let result = `获取 ${params.limit || 100} 条消息`
-    if (params.year) {
-      result += ` | ${params.year}年${params.month ? `${params.month}月` : ''}`
+    const parts: string[] = []
+    parts.push(`获取 ${params.limit || 100} 条消息`)
+
+    const timeStr = formatTimeParams(params)
+    if (timeStr) {
+      parts.push(timeStr)
     }
-    return result
+
+    return parts.join(' | ')
+  }
+
+  if (name === 'get_conversation_between') {
+    const parts: string[] = []
+
+    const timeStr = formatTimeParams(params)
+    if (timeStr) {
+      parts.push(`时间: ${timeStr}`)
+    }
+
+    if (params.limit) {
+      parts.push(`限制 ${params.limit} 条`)
+    }
+
+    return parts.join(' | ')
+  }
+
+  if (name === 'get_message_context') {
+    const ids = params.message_ids as number[] | undefined
+    const size = params.context_size || 20
+    if (ids && ids.length > 0) {
+      return `${ids.length} 条消息的前后各 ${size} 条上下文`
+    }
+    return `前后各 ${size} 条上下文`
   }
 
   if (name === 'get_member_stats') {
@@ -90,6 +155,10 @@ function formatToolParams(tool: ContentBlock extends { type: 'tool'; tool: infer
       return `搜索: ${params.search}`
     }
     return '获取成员列表'
+  }
+
+  if (name === 'get_member_name_history') {
+    return `成员ID: ${params.member_id}`
   }
 
   return ''

@@ -81,15 +81,26 @@ type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR'
 
 /**
  * 写入日志
+ * @param level 日志级别
+ * @param category 分类
+ * @param message 消息
+ * @param data 附加数据
+ * @param toConsole 是否输出到控制台（默认只有 WARN/ERROR 输出）
  */
-function writeLog(level: LogLevel, category: string, message: string, data?: any): void {
+function writeLog(level: LogLevel, category: string, message: string, data?: any, toConsole: boolean = false): void {
   const timestamp = formatTimestamp()
   let logLine = `[${timestamp}] [${level}] [${category}] ${message}`
 
   if (data !== undefined) {
     try {
       const dataStr = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
-      logLine += `\n${dataStr}`
+      // 限制数据长度，避免日志过大
+      const maxLength = 2000
+      if (dataStr.length > maxLength) {
+        logLine += `\n${dataStr.slice(0, maxLength)}...[截断，共 ${dataStr.length} 字符]`
+      } else {
+        logLine += `\n${dataStr}`
+      }
     } catch {
       logLine += `\n[无法序列化的数据]`
     }
@@ -105,8 +116,10 @@ function writeLog(level: LogLevel, category: string, message: string, data?: any
     console.error('[AILogger] 写入日志失败：', error)
   }
 
-  // 同时输出到控制台
-  console.log(`[AI] ${logLine.trim()}`)
+  // 只在需要时输出到控制台（WARN/ERROR 或明确指定）
+  if (toConsole || level === 'WARN' || level === 'ERROR') {
+    console.log(`[AI] ${message}`)
+  }
 }
 
 /**
@@ -163,4 +176,3 @@ export function logSearch(message: string, data?: any) {
 export function logRAG(message: string, data?: any) {
   aiLogger.info('RAG', message, data)
 }
-
