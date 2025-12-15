@@ -1,0 +1,226 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import type { AnalysisSession, ImportProgress } from '@/types/chat'
+
+/**
+ * 会话与导入相关的全局状态
+ */
+export const useSessionStore = defineStore(
+  'session',
+  () => {
+    // 会话列表
+    const sessions = ref<AnalysisSession[]>([])
+    // 当前会话 ID
+    const currentSessionId = ref<string | null>(null)
+    // 导入状态
+    const isImporting = ref(false)
+    const importProgress = ref<ImportProgress | null>(null)
+    // 是否初始化完成
+    const isInitialized = ref(false)
+
+    // 当前选中的会话
+    const currentSession = computed(() => {
+      if (!currentSessionId.value) return null
+      return sessions.value.find((s) => s.id === currentSessionId.value) || null
+    })
+
+    /**
+     * 从数据库加载会话列表
+     */
+    async function loadSessions() {
+      try {
+        const list = await window.chatApi.getSessions()
+        sessions.value = list
+        // 如果当前选中的会话不存在了，清除选中状态
+        if (currentSessionId.value && !list.find((s) => s.id === currentSessionId.value)) {
+          currentSessionId.value = null
+        }
+        isInitialized.value = true
+      } catch (error) {
+        console.error('加载会话列表失败:', error)
+        isInitialized.value = true
+      }
+    }
+
+    /**
+     * 选择文件并导入
+     */
+    async function importFile(): Promise<{ success: boolean; error?: string }> {
+      try {
+        const result = await window.chatApi.selectFile()
+        if (!result || !result.filePath) {
+          return { success: false, error: '未选择文件' }
+        }
+        if (result.error) {
+          return { success: false, error: result.error }
+        }
+        return await importFileFromPath(result.filePath)
+      } catch (error) {
+        return { success: false, error: String(error) }
+      }
+    }
+
+    /**
+     * 从指定路径执行导入（支持拖拽）
+     */
+    async function importFileFromPath(filePath: string): Promise<{ success: boolean; error?: string }> {
+      try {
+        isImporting.value = true
+        importProgress.value = {
+          stage: 'detecting',
+          progress: 0,
+          message: '准备导入...',
+        }
+
+        // 进度队列控制
+        const queue: ImportProgress[] = []
+        let isProcessing = false
+        let currentStage = 'reading'
+        let lastStageTime = Date.now()
+        const MIN_STAGE_TIME = 1000
+
+        /**
+         * 处理导入进度队列，确保阶段展示足够时间
+         */
+        const processQueue = async () => {
+          if (isProcessing) return
+          isProcessing = true
+
+          while (queue.length > 0) {
+            const next = queue[0]
+
+            if (next.stage !== currentStage) {
+              const elapsed = Date.now() - lastStageTime
+              if (elapsed < MIN_STAGE_TIME) {
+                await new Promise((resolve) => setTimeout(resolve, MIN_STAGE_TIME - elapsed))
+              }
+              currentStage = next.stage
+              lastStageTime = Date.now()
+            }
+
+            importProgress.value = queue.shift()!
+          }
+          isProcessing = false
+        }
+
+        const unsubscribe = window.chatApi.onImportProgress((progress) => {
+          if (progress.stage === 'done') return
+          queue.push(progress)
+          processQueue()
+        })
+
+        const importResult = await window.chatApi.import(filePath)
+        unsubscribe()
+
+        while (queue.length > 0 || isProcessing) {
+          await new Promise((resolve) => setTimeout(resolve, 100))
+        }
+
+        const elapsed = Date.now() - lastStageTime
+        if (elapsed < MIN_STAGE_TIME) {
+          await new Promise((resolve) => setTimeout(resolve, MIN_STAGE_TIME - elapsed))
+        }
+
+        if (importProgress.value) {
+          importProgress.value.progress = 100
+        }
+        await new Promise((resolve) => setTimeout(resolve, 300))
+
+        if (importResult.success && importResult.sessionId) {
+          await loadSessions()
+          currentSessionId.value = importResult.sessionId
+          return { success: true }
+        } else {
+          return { success: false, error: importResult.error || '导入失败' }
+        }
+      } catch (error) {
+        return { success: false, error: String(error) }
+      } finally {
+        isImporting.value = false
+        setTimeout(() => {
+          importProgress.value = null
+        }, 500)
+      }
+    }
+
+    /**
+     * 选择指定会话
+     */
+    function selectSession(id: string) {
+      currentSessionId.value = id
+    }
+
+    /**
+     * 删除会话
+     */
+    async function deleteSession(id: string): Promise<boolean> {
+      try {
+        const success = await window.chatApi.deleteSession(id)
+        if (success) {
+          const index = sessions.value.findIndex((s) => s.id === id)
+          if (index !== -1) {
+            sessions.value.splice(index, 1)
+          }
+          if (currentSessionId.value === id) {
+            currentSessionId.value = null
+          }
+          await loadSessions()
+        }
+        return success
+      } catch (error) {
+        console.error('删除会话失败:', error)
+        return false
+      }
+    }
+
+    /**
+     * 重命名会话
+     */
+    async function renameSession(id: string, newName: string): Promise<boolean> {
+      try {
+        const success = await window.chatApi.renameSession(id, newName)
+        if (success) {
+          const session = sessions.value.find((s) => s.id === id)
+          if (session) {
+            session.name = newName
+          }
+        }
+        return success
+      } catch (error) {
+        console.error('重命名会话失败:', error)
+        return false
+      }
+    }
+
+    /**
+     * 清空当前选中会话
+     */
+    function clearSelection() {
+      currentSessionId.value = null
+    }
+
+    return {
+      sessions,
+      currentSessionId,
+      isImporting,
+      importProgress,
+      isInitialized,
+      currentSession,
+      loadSessions,
+      importFile,
+      importFileFromPath,
+      selectSession,
+      deleteSession,
+      renameSession,
+      clearSelection,
+    }
+  },
+  {
+    persist: [
+      {
+        pick: ['currentSessionId'],
+        storage: sessionStorage,
+      },
+    ],
+  }
+)

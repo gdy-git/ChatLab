@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { useChatStore } from '@/stores/chat'
 import { FileDropZone } from '@/components/UI'
 import { storeToRefs } from 'pinia'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import ImportTutorialModal from './components/ImportTutorialModal.vue'
+import { useSessionStore } from '@/stores/session'
 
-const chatStore = useChatStore()
-const { isImporting, importProgress } = storeToRefs(chatStore)
+const sessionStore = useSessionStore()
+const { isImporting, importProgress } = storeToRefs(sessionStore)
 
 const importError = ref<string | null>(null)
 const showTutorialModal = ref(false)
@@ -53,11 +53,11 @@ async function navigateToSession(sessionId: string) {
 // 处理文件选择（点击选择）
 async function handleClickImport() {
   importError.value = null
-  const result = await chatStore.importFile()
+  const result = await sessionStore.importFile()
   if (!result.success && result.error && result.error !== '未选择文件') {
     importError.value = result.error
-  } else if (result.success && chatStore.currentSessionId) {
-    await navigateToSession(chatStore.currentSessionId)
+  } else if (result.success && sessionStore.currentSessionId) {
+    await navigateToSession(sessionStore.currentSessionId)
   }
 }
 
@@ -69,11 +69,11 @@ async function handleFileDrop({ paths }: { files: File[]; paths: string[] }) {
   }
 
   importError.value = null
-  const result = await chatStore.importFileFromPath(paths[0])
+  const result = await sessionStore.importFileFromPath(paths[0])
   if (!result.success && result.error) {
     importError.value = result.error
-  } else if (result.success && chatStore.currentSessionId) {
-    await navigateToSession(chatStore.currentSessionId)
+  } else if (result.success && sessionStore.currentSessionId) {
+    await navigateToSession(sessionStore.currentSessionId)
   }
 }
 

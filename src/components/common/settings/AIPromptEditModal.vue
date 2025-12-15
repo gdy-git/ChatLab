@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useChatStore } from '@/stores/chat'
 import type { PromptPreset } from '@/types/chat'
 import {
   getDefaultRoleDefinition,
@@ -8,6 +7,7 @@ import {
   getLockedPromptSectionPreview,
   getOriginalBuiltinPreset,
 } from '@/config/prompts'
+import { usePromptStore } from '@/stores/prompt'
 
 // Props
 const props = defineProps<{
@@ -24,7 +24,7 @@ const emit = defineEmits<{
 }>()
 
 // Store
-const chatStore = useChatStore()
+const promptStore = usePromptStore()
 
 // 表单数据
 const formData = ref({
@@ -39,7 +39,7 @@ const isBuiltIn = computed(() => props.preset?.isBuiltIn ?? false)
 const isEditMode = computed(() => props.mode === 'edit')
 const isModified = computed(() => {
   if (!isBuiltIn.value || !props.preset) return false
-  return chatStore.isBuiltinPresetModified(props.preset.id)
+  return promptStore.isBuiltinPresetModified(props.preset.id)
 })
 
 const modalTitle = computed(() => {
@@ -77,17 +77,18 @@ watch(
   }
 )
 
-// 方法
+/** 关闭弹窗 */
 function closeModal() {
   emit('update:open', false)
 }
 
+/** 保存提示词预设 */
 function handleSave() {
   if (!canSave.value) return
 
   if (isEditMode.value && props.preset) {
     // 更新现有预设（支持内置和自定义）
-    chatStore.updatePromptPreset(props.preset.id, {
+    promptStore.updatePromptPreset(props.preset.id, {
       name: formData.value.name.trim(),
       chatType: formData.value.chatType,
       roleDefinition: formData.value.roleDefinition.trim(),
@@ -95,7 +96,7 @@ function handleSave() {
     })
   } else {
     // 添加新预设
-    chatStore.addPromptPreset({
+    promptStore.addPromptPreset({
       name: formData.value.name.trim(),
       chatType: formData.value.chatType,
       roleDefinition: formData.value.roleDefinition.trim(),
@@ -107,7 +108,7 @@ function handleSave() {
   closeModal()
 }
 
-// 重置内置预设为原始值
+/** 重置内置预设为原始值 */
 function handleReset() {
   if (!props.preset || !isBuiltIn.value) return
 
@@ -121,7 +122,7 @@ function handleReset() {
       responseRules: original.responseRules,
     }
     // 清除覆盖
-    chatStore.resetBuiltinPreset(props.preset.id)
+    promptStore.resetBuiltinPreset(props.preset.id)
   }
 }
 

@@ -4,9 +4,9 @@
  * 支持无限滚动加载
  */
 import { ref, watch, nextTick, toRaw } from 'vue'
-import { useChatStore } from '@/stores/chat'
 import MessageItem from './MessageItem.vue'
 import type { ChatRecordMessage, ChatRecordQuery } from './types'
+import { useSessionStore } from '@/stores/session'
 
 const props = defineProps<{
   /** 当前查询条件 */
@@ -18,7 +18,7 @@ const emit = defineEmits<{
   (e: 'count-change', count: number): void
 }>()
 
-const chatStore = useChatStore()
+const sessionStore = useSessionStore()
 
 // 消息列表
 const messages = ref<ChatRecordMessage[]>([])
@@ -41,7 +41,7 @@ function buildFilterParams(query: ChatRecordQuery) {
 
 // 初始加载消息
 async function loadInitialMessages() {
-  const sessionId = chatStore.currentSessionId
+  const sessionId = sessionStore.currentSessionId
   if (!sessionId) {
     messages.value = []
     emit('count-change', 0)
@@ -99,7 +99,7 @@ async function loadInitialMessages() {
 async function loadMoreBefore() {
   if (isLoadingMore.value || !hasMoreBefore.value || messages.value.length === 0) return
 
-  const sessionId = chatStore.currentSessionId
+  const sessionId = sessionStore.currentSessionId
   if (!sessionId) return
 
   const firstMessage = messages.value[0]
@@ -142,7 +142,7 @@ async function loadMoreBefore() {
 async function loadMoreAfter() {
   if (isLoadingMore.value || !hasMoreAfter.value || messages.value.length === 0) return
 
-  const sessionId = chatStore.currentSessionId
+  const sessionId = sessionStore.currentSessionId
   if (!sessionId) return
 
   const lastMessage = messages.value[messages.value.length - 1]
@@ -269,4 +269,3 @@ defineExpose({
     </div>
   </div>
 </template>
-

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useChatStore } from '@/stores/chat'
 import { storeToRefs } from 'pinia'
+import { usePromptStore } from '@/stores/prompt'
 
 // Store
-const chatStore = useChatStore()
-const { aiGlobalSettings } = storeToRefs(chatStore)
+const promptStore = usePromptStore()
+const { aiGlobalSettings } = storeToRefs(promptStore)
 
 // Emits
 const emit = defineEmits<{
@@ -17,7 +17,7 @@ const globalMaxMessages = computed({
   get: () => aiGlobalSettings.value.maxMessagesPerRequest,
   set: (val: number) => {
     const clampedVal = Math.max(10, Math.min(5000, val || 200))
-    chatStore.updateAIGlobalSettings({ maxMessagesPerRequest: clampedVal })
+    promptStore.updateAIGlobalSettings({ maxMessagesPerRequest: clampedVal })
     emit('config-changed')
   },
 })
@@ -56,4 +56,3 @@ const globalMaxMessages = computed({
     </div>
   </div>
 </template>
-

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useChatStore } from '@/stores/chat'
 import { storeToRefs } from 'pinia'
 import type { PromptPreset } from '@/types/chat'
 import AIPromptEditModal from './AIPromptEditModal.vue'
+import { usePromptStore } from '@/stores/prompt'
 
 // Store
-const chatStore = useChatStore()
-const { groupPresets, privatePresets, aiPromptSettings, aiGlobalSettings } = storeToRefs(chatStore)
+const promptStore = usePromptStore()
+const { groupPresets, privatePresets, aiPromptSettings, aiGlobalSettings } = storeToRefs(promptStore)
 
 // Emits
 const emit = defineEmits<{
@@ -25,12 +25,12 @@ const globalMaxMessages = computed({
   get: () => aiGlobalSettings.value.maxMessagesPerRequest,
   set: (val: number) => {
     const clampedVal = Math.max(10, Math.min(5000, val || 200))
-    chatStore.updateAIGlobalSettings({ maxMessagesPerRequest: clampedVal })
+    promptStore.updateAIGlobalSettings({ maxMessagesPerRequest: clampedVal })
     emit('config-changed')
   },
 })
 
-// 方法
+/** 打开新增预设弹窗 */
 function openAddModal(chatType: 'group' | 'private') {
   editMode.value = 'add'
   editingPreset.value = null
@@ -38,6 +38,7 @@ function openAddModal(chatType: 'group' | 'private') {
   showEditModal.value = true
 }
 
+/** 打开编辑预设弹窗 */
 function openEditModal(preset: PromptPreset) {
   editMode.value = 'edit'
   editingPreset.value = preset
@@ -45,29 +46,34 @@ function openEditModal(preset: PromptPreset) {
   showEditModal.value = true
 }
 
+/** 处理子弹窗保存后的回调 */
 function handleModalSaved() {
   emit('config-changed')
 }
 
+/** 设置当前激活的预设 */
 function setActivePreset(presetId: string, chatType: 'group' | 'private') {
   if (chatType === 'group') {
-    chatStore.setActiveGroupPreset(presetId)
+    promptStore.setActiveGroupPreset(presetId)
   } else {
-    chatStore.setActivePrivatePreset(presetId)
+    promptStore.setActivePrivatePreset(presetId)
   }
   emit('config-changed')
 }
 
+/** 复制选中的预设 */
 function duplicatePreset(presetId: string) {
-  chatStore.duplicatePromptPreset(presetId)
+  promptStore.duplicatePromptPreset(presetId)
   emit('config-changed')
 }
 
+/** 删除选中的预设 */
 function deletePreset(presetId: string) {
-  chatStore.removePromptPreset(presetId)
+  promptStore.removePromptPreset(presetId)
   emit('config-changed')
 }
 
+/** 判断预设是否处于激活状态 */
 function isActivePreset(presetId: string, chatType: 'group' | 'private'): boolean {
   if (chatType === 'group') {
     return aiPromptSettings.value.activeGroupPresetId === presetId

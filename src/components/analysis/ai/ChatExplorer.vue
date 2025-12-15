@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import { useChatStore } from '@/stores/chat'
 import { storeToRefs } from 'pinia'
 import ConversationList from './ConversationList.vue'
 import DataSourcePanel from './DataSourcePanel.vue'
@@ -8,6 +7,7 @@ import ChatMessage from './ChatMessage.vue'
 import ChatInput from './ChatInput.vue'
 import { useAIChat } from '@/composables/useAIChat'
 import CaptureButton from '@/components/common/CaptureButton.vue'
+import { usePromptStore } from '@/stores/prompt'
 
 // Props
 const props = defineProps<{
@@ -36,8 +36,8 @@ const {
 } = useAIChat(props.sessionId, props.timeFilter, props.chatType ?? 'group')
 
 // Store
-const chatStore = useChatStore()
-const { groupPresets, privatePresets, aiPromptSettings } = storeToRefs(chatStore)
+const promptStore = usePromptStore()
+const { groupPresets, privatePresets, aiPromptSettings } = storeToRefs(promptStore)
 
 // 当前聊天类型
 const currentChatType = computed(() => props.chatType ?? 'group')
@@ -63,9 +63,9 @@ const isPresetPopoverOpen = ref(false)
 // 设置激活预设
 function setActivePreset(presetId: string) {
   if (currentChatType.value === 'group') {
-    chatStore.setActiveGroupPreset(presetId)
+    promptStore.setActiveGroupPreset(presetId)
   } else {
-    chatStore.setActivePrivatePreset(presetId)
+    promptStore.setActivePrivatePreset(presetId)
   }
   // 关闭下拉菜单
   isPresetPopoverOpen.value = false
@@ -242,7 +242,7 @@ watch(
 
 // 监听全局 AI 配置变化（从设置弹窗保存时触发）
 watch(
-  () => (chatStore as unknown as { aiConfigVersion: number }).aiConfigVersion,
+  () => promptStore.aiConfigVersion,
   async () => {
     await refreshConfig()
   }

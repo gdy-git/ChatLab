@@ -4,13 +4,13 @@
  * 主组件，组合筛选面板、消息列表等子组件
  */
 import { ref, watch, computed, toRaw, nextTick } from 'vue'
-import { useChatStore } from '@/stores/chat'
 import FilterPanel from './FilterPanel.vue'
 import ActiveFilters from './ActiveFilters.vue'
 import MessageList from './MessageList.vue'
 import type { ChatRecordQuery } from './types'
+import { useLayoutStore } from '@/stores/layout'
 
-const chatStore = useChatStore()
+const layoutStore = useLayoutStore()
 
 // 消息列表组件引用
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null)
@@ -72,11 +72,11 @@ function handleCountChange(count: number) {
 
 // 监听 Drawer 打开
 watch(
-  () => chatStore.showChatRecordDrawer,
+  () => layoutStore.showChatRecordDrawer,
   async (isOpen) => {
     if (isOpen) {
       // 复制查询参数到本地
-      const query = toRaw(chatStore.chatRecordQuery)
+      const query = toRaw(layoutStore.chatRecordQuery)
       localQuery.value = query ? { ...query } : {}
       // 如果有外部传入的筛选条件，默认不展开筛选面板
       filterExpanded.value = false
@@ -94,7 +94,7 @@ watch(
 </script>
 
 <template>
-  <UDrawer v-model:open="chatStore.showChatRecordDrawer" direction="right" :handle="false">
+  <UDrawer v-model:open="layoutStore.showChatRecordDrawer" direction="right" :handle="false">
     <template #content>
       <div class="flex h-full w-[580px] flex-col bg-white dark:bg-gray-900">
         <!-- 头部 -->
@@ -105,7 +105,7 @@ watch(
             color="neutral"
             variant="ghost"
             size="sm"
-            @click="chatStore.closeChatRecordDrawer()"
+            @click="layoutStore.closeChatRecordDrawer()"
           />
         </div>
 
@@ -141,4 +141,3 @@ watch(
     </template>
   </UDrawer>
 </template>
-

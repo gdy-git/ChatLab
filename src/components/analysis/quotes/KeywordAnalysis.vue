@@ -5,7 +5,7 @@ import { ListPro } from '@/components/charts'
 import type { RankItem } from '@/components/charts'
 import { LoadingState } from '@/components/UI'
 import { getRankBadgeClass } from '@/utils'
-import { useChatStore } from '@/stores/chat'
+import { usePromptStore } from '@/stores/prompt'
 
 interface TimeFilter {
   startTs?: number
@@ -23,15 +23,8 @@ const props = defineProps<{
   timeFilter?: TimeFilter
 }>()
 
-// 使用类型断言绕过 Pinia persist 插件的类型推断问题
-const chatStore = useChatStore() as ReturnType<typeof useChatStore> & {
-  customKeywordTemplates: BaseKeywordTemplate[]
-  deletedPresetTemplateIds: string[]
-  addCustomKeywordTemplate: (template: BaseKeywordTemplate) => void
-  updateCustomKeywordTemplate: (id: string, updates: Partial<Omit<BaseKeywordTemplate, 'id'>>) => void
-  removeCustomKeywordTemplate: (id: string) => void
-  addDeletedPresetTemplateId: (id: string) => void
-}
+// 使用提示词配置 store 管理关键词模板
+const promptStore = usePromptStore()
 
 // 颜色模式：false = 单色，true = 多色
 const isMultiColor = ref(false)
@@ -123,12 +116,12 @@ const PRESET_TEMPLATES: KeywordTemplate[] = [
 
 // 合并预设和自定义模板
 const allTemplates = computed<KeywordTemplate[]>(() => {
-  const custom = chatStore.customKeywordTemplates.map((t) => ({
+  const custom = promptStore.customKeywordTemplates.map((t) => ({
     ...t,
     isCustom: true,
   }))
   // 过滤掉已删除的预设模板
-  const activePresets = PRESET_TEMPLATES.filter((t) => !chatStore.deletedPresetTemplateIds.includes(t.id))
+  const activePresets = PRESET_TEMPLATES.filter((t) => !promptStore.deletedPresetTemplateIds.includes(t.id))
   return [...activePresets, ...custom]
 })
 
@@ -241,12 +234,12 @@ function saveTemplate() {
         name: templateName.value.trim(),
         keywords: [...templateKeywords.value],
       }
-      chatStore.addCustomKeywordTemplate(newTemplate)
+      promptStore.addCustomKeywordTemplate(newTemplate)
       selectedTemplateId.value = newTemplate.id
       currentKeywords.value = [...newTemplate.keywords]
       loadAnalysis()
     } else {
-      chatStore.updateCustomKeywordTemplate(editingTemplateId.value, {
+      promptStore.updateCustomKeywordTemplate(editingTemplateId.value, {
         name: templateName.value.trim(),
         keywords: [...templateKeywords.value],
       })
@@ -261,7 +254,7 @@ function saveTemplate() {
       name: templateName.value.trim(),
       keywords: [...templateKeywords.value],
     }
-    chatStore.addCustomKeywordTemplate(newTemplate)
+    promptStore.addCustomKeywordTemplate(newTemplate)
     selectedTemplateId.value = newTemplate.id
     currentKeywords.value = [...newTemplate.keywords]
     loadAnalysis()
@@ -273,9 +266,9 @@ function saveTemplate() {
 // 删除模板（支持预设和自定义）
 function deleteTemplate(templateId: string) {
   if (isPresetTemplate(templateId)) {
-    chatStore.addDeletedPresetTemplateId(templateId)
+    promptStore.addDeletedPresetTemplateId(templateId)
   } else {
-    chatStore.removeCustomKeywordTemplate(templateId)
+    promptStore.removeCustomKeywordTemplate(templateId)
   }
 
   if (selectedTemplateId.value === templateId) {

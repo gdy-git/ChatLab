@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useChatStore } from '@/stores/chat'
 import { storeToRefs } from 'pinia'
 import type { AnalysisSession, MemberActivity, HourlyActivity, DailyActivity, MessageType } from '@/types/chat'
 import { formatDateRange } from '@/utils'
@@ -13,11 +12,12 @@ import RankingTab from './components/RankingTab.vue'
 import QuotesTab from './components/QuotesTab.vue'
 import MemberTab from './components/MemberTab.vue'
 import PageHeader from '@/components/layout/PageHeader.vue'
+import { useSessionStore } from '@/stores/session'
 
 const route = useRoute()
 const router = useRouter()
-const chatStore = useChatStore()
-const { currentSessionId } = storeToRefs(chatStore)
+const sessionStore = useSessionStore()
+const { currentSessionId } = storeToRefs(sessionStore)
 
 // 数据状态
 const isLoading = ref(true)
@@ -97,9 +97,9 @@ const dateRangeText = computed(() => {
 function syncSession() {
   const id = route.params.id as string
   if (id) {
-    chatStore.selectSession(id)
+    sessionStore.selectSession(id)
     // If selection failed (e.g. invalid ID), redirect to home
-    if (chatStore.currentSessionId !== id) {
+    if (sessionStore.currentSessionId !== id) {
       router.replace('/')
     }
   }

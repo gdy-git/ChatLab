@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { useChatStore } from '@/stores/chat'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import Sidebar from '@/components/common/Sidebar.vue'
 import SettingModal from '@/components/common/SettingModal.vue'
 import ScreenCaptureModal from '@/components/common/ScreenCaptureModal.vue'
 import { ChatRecordDrawer } from '@/components/common/ChatRecord'
+import { useSessionStore } from '@/stores/session'
+import { useLayoutStore } from '@/stores/layout'
+import { usePromptStore } from '@/stores/prompt'
 
-const chatStore = useChatStore()
-const { isInitialized } = storeToRefs(chatStore)
+const sessionStore = useSessionStore()
+const layoutStore = useLayoutStore()
+const promptStore = usePromptStore()
+const { isInitialized } = storeToRefs(sessionStore)
 const route = useRoute()
 
 const tooltip = {
@@ -18,7 +22,7 @@ const tooltip = {
 
 // 应用启动时从数据库加载会话列表
 onMounted(async () => {
-  await chatStore.loadSessions()
+  await sessionStore.loadSessions()
 })
 </script>
 
@@ -44,11 +48,14 @@ onMounted(async () => {
         </main>
       </template>
     </div>
-    <SettingModal v-model:open="chatStore.showSettingModal" @ai-config-saved="chatStore.notifyAIConfigChanged" />
+    <SettingModal
+      v-model:open="layoutStore.showSettingModal"
+      @ai-config-saved="promptStore.notifyAIConfigChanged"
+    />
     <ScreenCaptureModal
-      :open="chatStore.showScreenCaptureModal"
-      :image-data="chatStore.screenCaptureImage"
-      @update:open="(v) => (v ? null : chatStore.closeScreenCaptureModal())"
+      :open="layoutStore.showScreenCaptureModal"
+      :image-data="layoutStore.screenCaptureImage"
+      @update:open="(v) => (v ? null : layoutStore.closeScreenCaptureModal())"
     />
     <!-- 全局聊天记录查看器 -->
     <ChatRecordDrawer />

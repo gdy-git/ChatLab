@@ -4,7 +4,7 @@ import type { RepeatAnalysis } from '@/types/chat'
 import { ListPro } from '@/components/charts'
 import { LoadingState, EmptyState, SectionCard } from '@/components/UI'
 import { formatDate, getRankBadgeClass } from '@/utils'
-import { useChatStore } from '@/stores/chat'
+import { useLayoutStore } from '@/stores/layout'
 
 interface TimeFilter {
   startTs?: number
@@ -16,7 +16,7 @@ const props = defineProps<{
   timeFilter?: TimeFilter
 }>()
 
-const chatStore = useChatStore()
+const layoutStore = useLayoutStore()
 
 // ==================== 最火复读内容 ====================
 const repeatAnalysis = ref<RepeatAnalysis | null>(null)
@@ -43,7 +43,7 @@ function truncateContent(content: string, maxLength = 30): string {
  * 查看复读内容的聊天记录上下文
  */
 function viewRepeatContext(item: { content: string; firstMessageId: number }) {
-  chatStore.openChatRecordDrawer({
+  layoutStore.openChatRecordDrawer({
     scrollToMessageId: item.firstMessageId,
     highlightKeywords: [item.content],
   })

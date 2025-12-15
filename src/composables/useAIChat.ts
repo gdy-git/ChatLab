@@ -4,8 +4,8 @@
  */
 
 import { ref, computed } from 'vue'
-import { useChatStore } from '@/stores/chat'
 import { storeToRefs } from 'pinia'
+import { usePromptStore } from '@/stores/prompt'
 
 // 工具调用记录
 export interface ToolCallRecord {
@@ -81,8 +81,8 @@ export function useAIChat(
   chatType: 'group' | 'private' = 'group'
 ) {
   // 获取 chat store 中的提示词配置和全局设置
-  const chatStore = useChatStore()
-  const { activeGroupPreset, activePrivatePreset, aiGlobalSettings } = storeToRefs(chatStore)
+  const promptStore = usePromptStore()
+  const { activeGroupPreset, activePrivatePreset, aiGlobalSettings } = storeToRefs(promptStore)
 
   // 获取当前聊天类型对应的提示词配置
   const currentPromptConfig = computed(() => {

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useChatStore } from '@/stores/chat'
 import { storeToRefs } from 'pinia'
 import { ref, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -8,13 +7,17 @@ import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-cn'
 import SidebarFooter from './sidebar/SidebarFooter.vue'
+import { useSessionStore } from '@/stores/session'
+import { useLayoutStore } from '@/stores/layout'
 
 dayjs.extend(relativeTime)
 dayjs.locale('zh-cn')
 
-const chatStore = useChatStore()
-const { sessions, isSidebarCollapsed: isCollapsed } = storeToRefs(chatStore)
-const { toggleSidebar } = chatStore
+const sessionStore = useSessionStore()
+const layoutStore = useLayoutStore()
+const { sessions } = storeToRefs(sessionStore)
+const { isSidebarCollapsed: isCollapsed } = storeToRefs(layoutStore)
+const { toggleSidebar } = layoutStore
 const router = useRouter()
 const route = useRoute()
 
@@ -30,7 +33,7 @@ const deleteTarget = ref<AnalysisSession | null>(null)
 
 // 加载会话列表
 onMounted(() => {
-  chatStore.loadSessions()
+  sessionStore.loadSessions()
 })
 
 function handleImport() {
@@ -58,7 +61,7 @@ function openRenameModal(session: AnalysisSession) {
 async function handleRename() {
   if (!renameTarget.value || !newName.value.trim()) return
 
-  const success = await chatStore.renameSession(renameTarget.value.id, newName.value.trim())
+  const success = await sessionStore.renameSession(renameTarget.value.id, newName.value.trim())
   if (success) {
     showRenameModal.value = false
     renameTarget.value = null
@@ -83,7 +86,7 @@ function openDeleteModal(session: AnalysisSession) {
 async function confirmDelete() {
   if (!deleteTarget.value) return
 
-  await chatStore.deleteSession(deleteTarget.value.id)
+  await sessionStore.deleteSession(deleteTarget.value.id)
   showDeleteModal.value = false
   deleteTarget.value = null
 }

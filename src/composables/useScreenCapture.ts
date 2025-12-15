@@ -3,9 +3,9 @@
  * 提供简洁的 API 用于捕获页面/元素截图
  */
 import { ref } from 'vue'
-import { useChatStore } from '@/stores/chat'
 import { captureAsImageData } from '@/utils/snapCapture'
 import { useToast } from '@nuxt/ui/runtime/composables/useToast.js'
+import { useLayoutStore } from '@/stores/layout'
 
 export interface ScreenCaptureOptions {
   /** 截屏时要隐藏的元素选择器列表 */
@@ -22,7 +22,7 @@ export interface ScreenCaptureOptions {
  * 截屏功能 Composable
  */
 export function useScreenCapture() {
-  const chatStore = useChatStore()
+  const layoutStore = useLayoutStore()
   const toast = useToast()
   const isCapturing = ref(false)
   const captureError = ref<string | null>(null)
@@ -87,7 +87,7 @@ export function useScreenCapture() {
           icon: 'i-heroicons-eye',
           onClick: () => {
             if (lastCapturedImage) {
-              chatStore.openScreenCaptureModal(lastCapturedImage)
+              layoutStore.openScreenCaptureModal(lastCapturedImage)
             }
           },
         },
@@ -388,7 +388,7 @@ export function useScreenCapture() {
           color: 'warning',
           duration: 3000,
         })
-        chatStore.openScreenCaptureModal(imageData)
+        layoutStore.openScreenCaptureModal(imageData)
       }
 
       return true
