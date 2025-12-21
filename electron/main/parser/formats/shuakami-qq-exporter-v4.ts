@@ -23,7 +23,7 @@ import { parser } from 'stream-json'
 import { pick } from 'stream-json/filters/Pick'
 import { streamValues } from 'stream-json/streamers/StreamValues'
 import { chain } from 'stream-chain'
-import { ChatPlatform, ChatType, MessageType } from '../../../../src/types/chat'
+import { KNOWN_PLATFORMS, ChatType, MessageType } from '../../../../src/types/chat'
 import type {
   FormatFeature,
   FormatModule,
@@ -41,7 +41,7 @@ import { getFileSize, createProgress, readFileHeadBytes, parseTimestamp, isValid
 export const feature: FormatFeature = {
   id: 'shuakami-qq-exporter-v4',
   name: 'shuakami/qq-chat-exporter V4',
-  platform: ChatPlatform.QQ,
+  platform: KNOWN_PLATFORMS.QQ,
   priority: 10,
   extensions: ['.json'],
   signatures: {
@@ -259,7 +259,7 @@ async function* parseV4(options: ParseOptions): AsyncGenerator<ParseEvent, void,
   // 发送 meta（包含群头像）
   const meta: ParsedMeta = {
     name: chatInfo.name || extractNameFromFilePath(filePath),
-    platform: ChatPlatform.QQ,
+    platform: KNOWN_PLATFORMS.QQ,
     type: chatType,
     groupAvatar: chatInfo.avatar, // 从 chatInfo.avatar 提取群头像
   }

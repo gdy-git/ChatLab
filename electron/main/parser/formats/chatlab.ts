@@ -13,7 +13,7 @@ import { parser } from 'stream-json'
 import { pick } from 'stream-json/filters/Pick'
 import { streamValues } from 'stream-json/streamers/StreamValues'
 import { chain } from 'stream-chain'
-import { ChatPlatform, ChatType } from '../../../../src/types/chat'
+import { KNOWN_PLATFORMS, ChatType } from '../../../../src/types/chat'
 import type {
   FormatFeature,
   FormatModule,
@@ -45,7 +45,7 @@ function extractNameFromFilePath(filePath: string): string {
 export const feature: FormatFeature = {
   id: 'chatlab',
   name: 'ChatLab JSON',
-  platform: ChatPlatform.UNKNOWN, // ChatLab 格式可能包含多平台数据
+  platform: KNOWN_PLATFORMS.UNKNOWN, // ChatLab 格式可能包含多平台数据
   priority: 1, // 最高优先级
   extensions: ['.json'],
   signatures: {
@@ -93,7 +93,7 @@ async function* parseChatLab(options: ParseOptions): AsyncGenerator<ParseEvent, 
   // 解析 meta
   let meta: ParsedMeta = {
     name: '未知群聊',
-    platform: ChatPlatform.UNKNOWN,
+    platform: KNOWN_PLATFORMS.UNKNOWN,
     type: ChatType.GROUP,
   }
   try {
@@ -124,7 +124,7 @@ async function* parseChatLab(options: ParseOptions): AsyncGenerator<ParseEvent, 
         const metaObj = JSON.parse(metaJson)
         meta = {
           name: metaObj.name || '未知群聊',
-          platform: (metaObj.platform as ChatPlatform) || ChatPlatform.UNKNOWN,
+          platform: metaObj.platform || KNOWN_PLATFORMS.UNKNOWN,
           type: (metaObj.type as ChatType) || ChatType.GROUP,
           groupId: metaObj.groupId,
           groupAvatar: metaObj.groupAvatar,

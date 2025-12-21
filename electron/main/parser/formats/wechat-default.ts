@@ -18,7 +18,7 @@ import * as path from 'path'
 import { parser } from 'stream-json'
 import { streamArray } from 'stream-json/streamers/StreamArray'
 import { chain } from 'stream-chain'
-import { ChatPlatform, ChatType, MessageType } from '../../../../src/types/chat'
+import { KNOWN_PLATFORMS, ChatType, MessageType } from '../../../../src/types/chat'
 import type {
   FormatFeature,
   FormatModule,
@@ -47,7 +47,7 @@ function extractNameFromFilePath(filePath: string): string {
 export const feature: FormatFeature = {
   id: 'wechat-default',
   name: '微信数据库导出 (JSON)',
-  platform: ChatPlatform.WECHAT,
+  platform: KNOWN_PLATFORMS.WECHAT,
   priority: 20,
   extensions: ['.json'],
   signatures: {
@@ -232,7 +232,7 @@ async function* parseWechatDefault(options: ParseOptions): AsyncGenerator<ParseE
   // 发送 meta
   const meta: ParsedMeta = {
     name: otherName,
-    platform: ChatPlatform.WECHAT,
+    platform: KNOWN_PLATFORMS.WECHAT,
     type: ChatType.PRIVATE,
   }
   yield { type: 'meta', data: meta }

@@ -81,15 +81,22 @@ export function getMessageTypeName(type: MessageType | number): string {
 }
 
 /**
- * 聊天平台枚举
+ * 聊天平台类型（字符串，允许任意值）
+ * 常见平台示例：qq, weixin, discord, whatsapp 等
+ * 合并多平台记录时使用 'mixed'
  */
-export enum ChatPlatform {
-  QQ = 'qq',
-  WECHAT = 'wechat',
-  DISCORD = 'discord',
-  MIXED = 'mixed', // 合并的多平台聊天记录
-  UNKNOWN = 'unknown',
-}
+export type ChatPlatform = string
+
+/**
+ * 预定义的常用平台值
+ */
+export const KNOWN_PLATFORMS = {
+  QQ: 'qq',
+  WECHAT: 'weixin',
+  DISCORD: 'discord',
+  WHATSAPP: 'whatsapp',
+  UNKNOWN: 'unknown',
+} as const
 
 /**
  * 聊天类型枚举

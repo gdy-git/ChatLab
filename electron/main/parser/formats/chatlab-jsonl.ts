@@ -18,7 +18,7 @@
 import * as fs from 'fs'
 import * as readline from 'readline'
 import * as path from 'path'
-import { ChatPlatform, ChatType, MessageType } from '../../../../src/types/chat'
+import { KNOWN_PLATFORMS, ChatType, MessageType, type ChatPlatform } from '../../../../src/types/chat'
 import type {
   FormatFeature,
   FormatModule,
@@ -111,7 +111,7 @@ function parseLine(line: string): JsonlLine | null {
 export const feature: FormatFeature = {
   id: 'chatlab-jsonl',
   name: 'ChatLab JSONL',
-  platform: ChatPlatform.UNKNOWN,
+  platform: KNOWN_PLATFORMS.UNKNOWN,
   priority: 2, // 仅次于 ChatLab JSON
   extensions: ['.jsonl'],
   signatures: {
@@ -163,7 +163,7 @@ async function* parseChatLabJsonl(options: ParseOptions): AsyncGenerator<ParseEv
         if (!headerParsed) {
           meta = {
             name: parsed.meta.name || extractNameFromFilePath(filePath),
-            platform: (parsed.meta.platform as ChatPlatform) || ChatPlatform.UNKNOWN,
+            platform: parsed.meta.platform || KNOWN_PLATFORMS.UNKNOWN,
             type: (parsed.meta.type as ChatType) || ChatType.GROUP,
             groupId: parsed.meta.groupId,
             groupAvatar: parsed.meta.groupAvatar,
@@ -189,7 +189,7 @@ async function* parseChatLabJsonl(options: ParseOptions): AsyncGenerator<ParseEv
         if (!meta) {
           meta = {
             name: extractNameFromFilePath(filePath),
-            platform: ChatPlatform.UNKNOWN,
+            platform: KNOWN_PLATFORMS.UNKNOWN,
             type: ChatType.GROUP,
           }
           yield { type: 'meta', data: meta }
@@ -234,7 +234,7 @@ async function* parseChatLabJsonl(options: ParseOptions): AsyncGenerator<ParseEv
   if (!meta) {
     meta = {
       name: extractNameFromFilePath(filePath),
-      platform: ChatPlatform.UNKNOWN,
+      platform: KNOWN_PLATFORMS.UNKNOWN,
       type: ChatType.GROUP,
     }
     yield { type: 'meta', data: meta }

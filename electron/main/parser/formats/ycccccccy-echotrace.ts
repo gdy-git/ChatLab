@@ -19,7 +19,7 @@ import { parser } from 'stream-json'
 import { pick } from 'stream-json/filters/Pick'
 import { streamValues } from 'stream-json/streamers/StreamValues'
 import { chain } from 'stream-chain'
-import { ChatPlatform, ChatType, MessageType } from '../../../../src/types/chat'
+import { KNOWN_PLATFORMS, ChatType, MessageType } from '../../../../src/types/chat'
 import type {
   FormatFeature,
   FormatModule,
@@ -48,7 +48,7 @@ function extractNameFromFilePath(filePath: string): string {
 export const feature: FormatFeature = {
   id: 'ycccccccy-echotrace',
   name: 'ycccccccy/echotrace 微信导出',
-  platform: ChatPlatform.WECHAT,
+  platform: KNOWN_PLATFORMS.WECHAT,
   priority: 15,
   extensions: ['.json'],
   signatures: {
@@ -357,7 +357,7 @@ async function* parseEchotrace(options: ParseOptions): AsyncGenerator<ParseEvent
   // 发送 meta
   const meta: ParsedMeta = {
     name: chatName,
-    platform: ChatPlatform.WECHAT,
+    platform: KNOWN_PLATFORMS.WECHAT,
     type: chatType,
     groupId,
     groupAvatar,

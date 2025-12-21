@@ -454,9 +454,8 @@ export async function mergeFilesWithTempDb(
 
     console.log(`[Merger] 合并后消息数: ${mergedMessages.length}`)
 
-    // 确定平台
-    const platforms = new Set(parseResults.map((r) => r.meta.platform))
-    const platform = platforms.size === 1 ? parseResults[0].meta.platform : 'mixed'
+    // 确定平台（使用第一个文件的平台）
+    const platform = parseResults[0].meta.platform
 
     // 确定群ID和群头像（仅当所有文件都来自同一个群时保留）
     const groupIds = new Set(parseResults.map((r) => r.meta.groupId).filter(Boolean))

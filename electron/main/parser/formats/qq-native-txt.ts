@@ -17,7 +17,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
-import { ChatPlatform, ChatType, MessageType } from '../../../../src/types/chat'
+import { KNOWN_PLATFORMS, ChatType, MessageType } from '../../../../src/types/chat'
 import type {
   FormatFeature,
   FormatModule,
@@ -46,7 +46,7 @@ function extractNameFromFilePath(filePath: string): string {
 export const feature: FormatFeature = {
   id: 'qq-native-txt',
   name: 'QQ 官方导出 (TXT)',
-  platform: ChatPlatform.QQ,
+  platform: KNOWN_PLATFORMS.QQ,
   priority: 30,
   extensions: ['.txt'],
   signatures: {
@@ -271,7 +271,7 @@ async function* parseTxt(options: ParseOptions): AsyncGenerator<ParseEvent, void
   // 发送 meta（如果群名仍是默认值，使用文件名作为后备）
   const meta: ParsedMeta = {
     name: groupName === '未知群聊' ? extractNameFromFilePath(filePath) : groupName,
-    platform: ChatPlatform.QQ,
+    platform: KNOWN_PLATFORMS.QQ,
     type: ChatType.GROUP,
   }
   yield { type: 'meta', data: meta }
