@@ -14,8 +14,16 @@ on:
       - 'v*'
 
 jobs:
+  # macOS 构建需要分架构，因为 better-sqlite3 原生模块需要在对应架构上编译
   build-mac:
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - os: macos-13    # Intel (x64)
+            arch: x64
+          - os: macos-14    # Apple Silicon (arm64)
+            arch: arm64
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -39,9 +47,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-${{ matrix.arch }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+            ${{ runner.os }}-${{ matrix.arch }}-pnpm-store-
 
       - name: Install dependencies
         run: pnpm install
@@ -52,7 +60,7 @@ jobs:
           mkdir -p ~/private_keys
           echo "${{ secrets.APPLE_API_KEY }}" > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
 
-      - name: Build Electron app for macOS
+      - name: Build Electron app for macOS (${{ matrix.arch }})
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           # 代码签名
@@ -64,12 +72,12 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           # 分析服务
           APTABASE_APP_KEY: ${{ secrets.APTABASE_APP_KEY }}
-        run: pnpm build:mac
+        run: pnpm build && electron-builder --mac --${{ matrix.arch }} --config electron-builder.yml -p never
 
-      - name: Upload macOS artifacts
+      - name: Upload macOS artifacts (${{ matrix.arch }})
         uses: actions/upload-artifact@v4
         with:
-          name: ChatLab-mac
+          name: ChatLab-mac-${{ matrix.arch }}
           path: |
             dist/*.dmg
             dist/*.zip
@@ -141,10 +149,16 @@ jobs:
         with:
           fetch-depth: 0 # 获取完整历史用于生成 changelog
 
-      - name: Download macOS artifacts
+      - name: Download macOS artifacts (x64)
         uses: actions/download-artifact@v4
         with:
-          name: ChatLab-mac
+          name: ChatLab-mac-x64
+          path: dist
+
+      - name: Download macOS artifacts (arm64)
+        uses: actions/download-artifact@v4
+        with:
+          name: ChatLab-mac-arm64
           path: dist
 
       - name: Download Windows artifacts
