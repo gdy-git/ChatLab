@@ -144,7 +144,7 @@ watch(
     :class="[
       isVertical
         ? 'h-full border-r border-gray-200/50 dark:border-gray-700/50'
-        : 'border-b border-gray-200/50 px-6 dark:border-gray-800/50',
+        : 'flex items-center justify-between border-b border-gray-200/50 px-6 dark:border-gray-800/50',
     ]"
   >
     <div ref="containerRef" class="relative" :class="[isVertical ? 'flex flex-col gap-1' : 'flex gap-1']">
@@ -167,5 +167,7 @@ watch(
       <!-- 滑动指示器 -->
       <div class="absolute bg-primary-500 transition-all duration-300 ease-out" :style="indicatorStyle" />
     </div>
+    <!-- 右侧插槽（水平模式可用） -->
+    <slot v-if="!isVertical" name="right" />
   </div>
 </template>

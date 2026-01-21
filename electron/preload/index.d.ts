@@ -25,6 +25,7 @@ import type { TableSchema, SQLResult } from '../../src/components/analysis/SQLLa
 interface TimeFilter {
   startTs?: number
   endTs?: number
+  memberId?: number | null // 成员筛选，null 表示全部成员
 }
 
 // 迁移相关类型

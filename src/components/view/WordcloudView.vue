@@ -11,6 +11,7 @@ interface TimeFilter {
 defineProps<{
   sessionId: string
   timeFilter?: TimeFilter
+  memberId?: number | null
 }>()
 </script>
 

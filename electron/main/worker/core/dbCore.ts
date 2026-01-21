@@ -82,19 +82,21 @@ export function getDbDir(): string {
 export interface TimeFilter {
   startTs?: number
   endTs?: number
+  memberId?: number | null // 成员筛选，null 表示全部成员
 }
 
 /**
  * 构建时间过滤 WHERE 子句
- * @param filter 时间过滤器
+ * @param filter 时间过滤器（包含时间范围和成员筛选）
  * @param tableAlias 表别名，用于多表 JOIN 场景避免列名歧义（如 'msg'）
  */
-export function buildTimeFilter(filter?: TimeFilter, tableAlias?: string): { clause: string; params: number[] } {
+export function buildTimeFilter(filter?: TimeFilter, tableAlias?: string): { clause: string; params: (number | string)[] } {
   const conditions: string[] = []
-  const params: number[] = []
+  const params: (number | string)[] = []
 
   // 构建带别名的列名（如 'msg.ts' 或 'ts'）
   const tsColumn = tableAlias ? `${tableAlias}.ts` : 'ts'
+  const senderIdColumn = tableAlias ? `${tableAlias}.sender_id` : 'sender_id'
 
   if (filter?.startTs !== undefined) {
     conditions.push(`${tsColumn} >= ?`)
@@ -103,6 +105,11 @@ export function buildTimeFilter(filter?: TimeFilter, tableAlias?: string): { cla
   if (filter?.endTs !== undefined) {
     conditions.push(`${tsColumn} <= ?`)
     params.push(filter.endTs)
+  }
+  // 成员筛选
+  if (filter?.memberId !== undefined && filter?.memberId !== null) {
+    conditions.push(`${senderIdColumn} = ?`)
+    params.push(filter.memberId)
   }
 
   return {

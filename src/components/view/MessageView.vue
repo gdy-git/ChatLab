@@ -15,10 +15,15 @@ interface TimeFilter {
   endTs?: number
 }
 
+interface MemberFilter {
+  memberId?: number | null
+}
+
 // Props
 const props = defineProps<{
   sessionId: string
   timeFilter?: TimeFilter
+  memberId?: number | null // 成员筛选，null 表示全部成员
 }>()
 
 // 数据状态
@@ -199,19 +204,26 @@ const heatmapChartData = computed<EChartHeatmapData>(() => {
   return { xLabels, yLabels, data }
 })
 
+// 合并 timeFilter 和 memberId 的 filter
+const effectiveFilter = computed(() => ({
+  ...props.timeFilter,
+  memberId: props.memberId,
+}))
+
 // 加载数据
 async function loadData() {
   if (!props.sessionId) return
 
   isLoading.value = true
   try {
+    const filter = effectiveFilter.value
     const [types, hourly, weekday, monthly, yearly, lengthData] = await Promise.all([
-      window.chatApi.getMessageTypeDistribution(props.sessionId, props.timeFilter),
-      window.chatApi.getHourlyActivity(props.sessionId, props.timeFilter),
-      window.chatApi.getWeekdayActivity(props.sessionId, props.timeFilter),
-      window.chatApi.getMonthlyActivity(props.sessionId, props.timeFilter),
-      window.chatApi.getYearlyActivity(props.sessionId, props.timeFilter),
-      window.chatApi.getMessageLengthDistribution(props.sessionId, props.timeFilter),
+      window.chatApi.getMessageTypeDistribution(props.sessionId, filter),
+      window.chatApi.getHourlyActivity(props.sessionId, filter),
+      window.chatApi.getWeekdayActivity(props.sessionId, filter),
+      window.chatApi.getMonthlyActivity(props.sessionId, filter),
+      window.chatApi.getYearlyActivity(props.sessionId, filter),
+      window.chatApi.getMessageLengthDistribution(props.sessionId, filter),
     ])
 
     messageTypes.value = types
@@ -228,9 +240,9 @@ async function loadData() {
   }
 }
 
-// 监听 props 变化
+// 监听 props 变化（包括 memberId）
 watch(
-  () => [props.sessionId, props.timeFilter],
+  () => [props.sessionId, props.timeFilter, props.memberId],
   () => {
     loadData()
   },
